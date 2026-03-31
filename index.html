@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>成绩管家 - 记录每一步进步</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
@@ -820,6 +821,7 @@
             <div class="sidebar-header">
                 <h1>成绩管家</h1>
                 <p>记录每一步进步</p>
+                <div id="cloudStatus" style="margin-top: 8px; font-size: 0.75rem;"></div>
             </div>
             
             <div class="exam-list" id="examList">
@@ -943,6 +945,28 @@
                     </div>
                     
                 </div>
+                
+                <!-- 云同步设置 -->
+                <div class="card" style="margin-top: 20px;">
+                    <h2 class="card-title">云同步设置</h2>
+                    <div id="cloudConfigStatus" style="margin-bottom: 16px; padding: 12px; background: var(--bg-primary); border-radius: 8px;">
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            当前状态：<span id="syncStatusText">未配置</span>
+                        </div>
+                    </div>
+                    <div id="cloudConfigForm" style="display: none;">
+                        <div class="form-group">
+                            <label>Supabase URL</label>
+                            <input type="text" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+                        </div>
+                        <div class="form-group">
+                            <label>Supabase Anon Key</label>
+                            <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="saveCloudConfig" style="width: 100%;">保存并启用云同步</button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="setupCloudBtn" style="width: 100%;">配置云同步</button>
+                </div>
             </div>
         </main>
     </div>
@@ -1044,27 +1068,139 @@
     </div>
 
     <script>
+        // ===== Supabase 配置 =====
+        // 优先从本地存储读取配置，否则使用默认值
+        let SUPABASE_URL = localStorage.getItem('supabase_url') || '';
+        let SUPABASE_ANON_KEY = localStorage.getItem('supabase_key') || '';
+
+        // ===== Supabase 客户端 =====
+        let supabase = null;
+        let currentUser = null;
+        let isCloudEnabled = SUPABASE_URL !== '' && SUPABASE_ANON_KEY !== '';
+
+        // 初始化Supabase客户端
+        if (isCloudEnabled) {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                console.log('Supabase初始化失败:', e);
+                isCloudEnabled = false;
+            }
+        }
+
+        // 初始化Supabase
+        if (isCloudEnabled) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
         // ===== 数据存储键 =====
         const EXAMS_KEY = 'xueji_exams';
         const TARGET_KEY = 'xueji_target';
 
+        // ===== 云同步状态 =====
+        function updateCloudStatus(connected, message = '') {
+            const statusEl = document.getElementById('cloudStatus');
+            if (statusEl) {
+                statusEl.innerHTML = connected 
+                    ? '<span style="color: var(--accent-green);">● 云同步已开启</span>'
+                    : '<span style="color: var(--text-secondary);">○ 本地存储</span>';
+            }
+        }
+
         // ===== 数据操作 =====
-        function getExams() {
+        async function getExams() {
+            // 优先尝试从云端获取
+            if (isCloudEnabled && currentUser) {
+                try {
+                    const { data, error } = await supabase
+                        .from('exams')
+                        .select('data')
+                        .eq('user_id', currentUser.id)
+                        .single();
+                    
+                    if (data && data.data) {
+                        // 同步到本地作为备份
+                        localStorage.setItem(EXAMS_KEY, JSON.stringify(data.data));
+                        return data.data;
+                    }
+                } catch (e) {
+                    console.log('云端获取失败，使用本地数据');
+                }
+            }
+            // 回退到本地存储
             const data = localStorage.getItem(EXAMS_KEY);
             return data ? JSON.parse(data) : [];
         }
 
-        function saveExams(exams) {
+        async function saveExams(exams) {
+            // 保存到本地
             localStorage.setItem(EXAMS_KEY, JSON.stringify(exams));
+            
+            // 如果已登录云端，同时保存到云端
+            if (isCloudEnabled && currentUser) {
+                try {
+                    await supabase
+                        .from('exams')
+                        .upsert({ 
+                            user_id: currentUser.id, 
+                            data: exams, 
+                            updated_at: new Date().toISOString() 
+                        }, { onConflict: 'user_id' });
+                } catch (e) {
+                    console.log('云端保存失败');
+                }
+            }
         }
 
-        function getTarget() {
+        async function getTarget() {
+            if (isCloudEnabled && currentUser) {
+                try {
+                    const { data } = await supabase
+                        .from('targets')
+                        .select('target')
+                        .eq('user_id', currentUser.id)
+                        .single();
+                    if (data) {
+                        localStorage.setItem(TARGET_KEY, data.target);
+                        return data.target;
+                    }
+                } catch (e) {}
+            }
             const target = localStorage.getItem(TARGET_KEY);
             return target ? parseInt(target) : 90;
         }
 
-        function saveTarget(target) {
+        async function saveTarget(target) {
             localStorage.setItem(TARGET_KEY, target);
+            
+            if (isCloudEnabled && currentUser) {
+                try {
+                    await supabase
+                        .from('targets')
+                        .upsert({ 
+                            user_id: currentUser.id, 
+                            target: target,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id' });
+                } catch (e) {}
+            }
+        }
+
+        // ===== 匿名登录 =====
+        async function loginAnonymously() {
+            if (!isCloudEnabled) return false;
+            
+            try {
+                const { data, error } = await supabase.auth.signInAnonymously();
+                if (data?.user) {
+                    currentUser = data.user;
+                    updateCloudStatus(true, '已登录');
+                    return true;
+                }
+            } catch (e) {
+                console.log('匿名登录失败:', e);
+            }
+            return false;
         }
 
         // ===== 全局状态 =====
@@ -1632,6 +1768,64 @@
             }
         });
 
+        // ===== 云同步配置 =====
+        // 检查本地是否已有配置
+        const savedUrl = localStorage.getItem('supabase_url');
+        const savedKey = localStorage.getItem('supabase_key');
+        
+        if (savedUrl && savedKey) {
+            document.getElementById('syncStatusText').textContent = '已配置（点击可修改）';
+            document.getElementById('syncStatusText').style.color = 'var(--accent-green)';
+        } else {
+            document.getElementById('syncStatusText').textContent = '未配置';
+        }
+
+        // 显示/隐藏配置表单
+        document.getElementById('setupCloudBtn').addEventListener('click', function() {
+            document.getElementById('cloudConfigForm').style.display = 'block';
+            this.style.display = 'none';
+            
+            // 填充已有配置
+            if (savedUrl) document.getElementById('supabaseUrl').value = savedUrl;
+            if (savedKey) document.getElementById('supabaseKey').value = savedKey;
+        });
+
+        // 保存云同步配置
+        document.getElementById('saveCloudConfig').addEventListener('click', async function() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            
+            if (!url || !key) {
+                alert('请填写完整的Supabase配置');
+                return;
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('supabase_url', url);
+            localStorage.setItem('supabase_key', key);
+            
+            // 更新全局配置
+            window.SUPABASE_URL = url;
+            window.SUPABASE_ANON_KEY = key;
+            window.isCloudEnabled = true;
+            window.supabase = window.supabase.createClient(url, key);
+            
+            // 尝试登录
+            await loginAnonymously();
+            
+            if (currentUser) {
+                alert('云同步配置成功！数据将自动同步到云端。');
+                document.getElementById('syncStatusText').textContent = '已配置 - 已登录';
+                document.getElementById('syncStatusText').style.color = 'var(--accent-green)';
+                document.getElementById('cloudConfigForm').style.display = 'none';
+                document.getElementById('setupCloudBtn').style.display = 'none';
+                updateCloudStatus(true);
+                refreshAll();
+            } else {
+                alert('配置保存成功，但登录失败，请检查网络后重试。');
+            }
+        });
+
         // ===== 数据导出导入 =====
         document.getElementById('exportBtn').addEventListener('click', function() {
             const data = {
@@ -1801,8 +1995,19 @@
         document.getElementById('newExamBtn').addEventListener('click', () => openExamModal());
 
         // ===== 初始化 =====
-        initCharts();
-        refreshAll();
+        async function initApp() {
+            initCharts();
+            
+            // 尝试匿名登录云端
+            if (isCloudEnabled) {
+                await loginAnonymously();
+            }
+            
+            updateCloudStatus(isCloudEnabled && currentUser !== null);
+            refreshAll();
+        }
+        
+        initApp();
     </script>
     
     <!-- 页脚 -->
