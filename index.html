@@ -1069,15 +1069,12 @@
 
     <script>
         // ===== Supabase 配置 =====
-        // 暂时禁用云同步，等功能完善后再启用
-        // let SUPABASE_URL = localStorage.getItem('supabase_url') || 'https://ykrvdsizpyxcbodjztbf.supabase.co';
-        // let SUPABASE_ANON_KEY = localStorage.getItem('supabase_key') || 'eyJ...';
+        // 直接禁用云同步，避免任何初始化问题
+        let SUPABASE_URL = '';
+        let SUPABASE_ANON_KEY = '';
         
-        const SUPABASE_URL = '';
-        const SUPABASE_ANON_KEY = '';
-
-        // ===== Supabase 客户端 =====
-        let supabase = null;
+        // ===== 全局状态 =====
+        let supabaseClient = null;  // 改名避免和库名冲突
         let currentUser = null;
         let isCloudEnabled = false;
 
@@ -1098,9 +1095,9 @@
         // ===== 数据操作 =====
         async function getExams() {
             // 优先尝试从云端获取
-            if (isCloudEnabled && currentUser) {
+            if (isCloudEnabled && currentUser && supabaseClient) {
                 try {
-                    const { data, error } = await supabase
+                    const { data, error } = await supabaseClient
                         .from('exams')
                         .select('data')
                         .eq('user_id', currentUser.id)
@@ -1125,9 +1122,9 @@
             localStorage.setItem(EXAMS_KEY, JSON.stringify(exams));
             
             // 如果已登录云端，同时保存到云端
-            if (isCloudEnabled && currentUser) {
+            if (isCloudEnabled && currentUser && supabaseClient) {
                 try {
-                    await supabase
+                    await supabaseClient
                         .from('exams')
                         .upsert({ 
                             user_id: currentUser.id, 
@@ -1141,9 +1138,9 @@
         }
 
         async function getTarget() {
-            if (isCloudEnabled && currentUser) {
+            if (isCloudEnabled && currentUser && supabaseClient) {
                 try {
-                    const { data } = await supabase
+                    const { data } = await supabaseClient
                         .from('targets')
                         .select('target')
                         .eq('user_id', currentUser.id)
@@ -1161,9 +1158,9 @@
         async function saveTarget(target) {
             localStorage.setItem(TARGET_KEY, target);
             
-            if (isCloudEnabled && currentUser) {
+            if (isCloudEnabled && currentUser && supabaseClient) {
                 try {
-                    await supabase
+                    await supabaseClient
                         .from('targets')
                         .upsert({ 
                             user_id: currentUser.id, 
@@ -1176,10 +1173,10 @@
 
         // ===== 匿名登录 =====
         async function loginAnonymously() {
-            if (!isCloudEnabled) return false;
+            if (!isCloudEnabled || !supabaseClient) return false;
             
             try {
-                const { data, error } = await supabase.auth.signInAnonymously();
+                const { data, error } = await supabaseClient.auth.signInAnonymously();
                 if (data?.user) {
                     currentUser = data.user;
                     updateCloudStatus(true, '已登录');
@@ -1196,8 +1193,8 @@
         let trendChart = null;
 
         // ===== 渲染考试列表 =====
-        function renderExamList() {
-            const exams = getExams();
+        async function renderExamList() {
+            const exams = await getExams();
             const container = document.getElementById('examList');
             
             if (exams.length === 0) {
@@ -1241,23 +1238,23 @@
         }
 
         // ===== 选择考试 =====
-        function selectExam(examId) {
+        async function selectExam(examId) {
             currentExamId = examId;
-            renderExamList();
+            await renderExamList();
             renderExamDetail();
         }
 
         // ===== 选择科目 =====
-        function selectSubject(examId, subjectName) {
+        async function selectSubject(examId, subjectName) {
             currentExamId = examId;
-            renderExamList();
+            await renderExamList();
             renderExamDetail();
             // 可以在这里显示单科的详细信息
         }
 
         // ===== 渲染考试详情 =====
-        function renderExamDetail() {
-            const exams = getExams();
+        async function renderExamDetail() {
+            const exams = await getExams();
             const container = document.getElementById('examContent');
             
             if (!currentExamId) {
@@ -1321,8 +1318,8 @@
         }
 
         // ===== 更新统计 =====
-        function updateStats() {
-            const exams = getExams();
+        async function updateStats() {
+            const exams = await getExams();
             let totalRecords = 0;
             let allScores = [];
             
@@ -1397,71 +1394,74 @@
         }
 
         function updateCharts() {
-            const exams = getExams();
-            const sortedExams = [...exams].sort((a, b) => new Date(a.startDate || a.createdAt) - new Date(b.startDate || b.createdAt));
-            
-            const examAverages = sortedExams.map(exam => {
-                const subjects = exam.subjects || [];
-                if (subjects.length === 0) return null;
-                const total = subjects.reduce((sum, s) => sum + s.score, 0);
-                return {
-                    name: exam.name,
-                    avg: total / subjects.length
-                };
-            }).filter(e => e !== null);
+            getExams().then(exams => {
+                const sortedExams = [...exams].sort((a, b) => new Date(a.startDate || a.createdAt) - new Date(b.startDate || b.createdAt));
+                
+                const examAverages = sortedExams.map(exam => {
+                    const subjects = exam.subjects || [];
+                    if (subjects.length === 0) return null;
+                    const total = subjects.reduce((sum, s) => sum + s.score, 0);
+                    return {
+                        name: exam.name,
+                        avg: total / subjects.length
+                    };
+                }).filter(e => e !== null);
 
-            trendChart.data.labels = examAverages.map(e => e.name);
-            trendChart.data.datasets[0].data = examAverages.map(e => e.avg);
-            trendChart.update();
+                trendChart.data.labels = examAverages.map(e => e.name);
+                trendChart.data.datasets[0].data = examAverages.map(e => e.avg);
+                trendChart.update();
+            });
         }
 
         function updateChartTabs() {
-            const exams = getExams();
-            const container = document.getElementById('chartTabs');
-            const subjects = [...new Set(exams.flatMap(e => (e.subjects || []).map(s => s.name)))];
-            
-            let html = '<button class="chart-tab active" data-chart="total">总分趋势</button>';
-            subjects.forEach(subject => {
-                html += `<button class="chart-tab" data-subject="${subject}">${subject}</button>`;
-            });
-            
-            container.innerHTML = html;
-            
-            container.querySelectorAll('.chart-tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    container.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    updateChartsBySubject(this.dataset.subject);
+            getExams().then(exams => {
+                const container = document.getElementById('chartTabs');
+                const subjects = [...new Set(exams.flatMap(e => (e.subjects || []).map(s => s.name)))];
+                
+                let html = '<button class="chart-tab active" data-chart="total">总分趋势</button>';
+                subjects.forEach(subject => {
+                    html += `<button class="chart-tab" data-subject="${subject}">${subject}</button>`;
+                });
+                
+                container.innerHTML = html;
+                
+                container.querySelectorAll('.chart-tab').forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        container.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+                        this.classList.add('active');
+                        updateChartsBySubject(this.dataset.subject);
+                    });
                 });
             });
         }
 
         function updateChartsBySubject(subject) {
-            const exams = getExams();
-            const sortedExams = [...exams].sort((a, b) => new Date(a.startDate || a.createdAt) - new Date(b.startDate || b.createdAt));
-            
-            if (!subject || subject === 'total') {
-                updateCharts();
-                return;
-            }
+            getExams().then(exams => {
+                const sortedExams = [...exams].sort((a, b) => new Date(a.startDate || a.createdAt) - new Date(b.startDate || b.createdAt));
+                
+                if (!subject || subject === 'total') {
+                    updateCharts();
+                    return;
+                }
 
-            const subjectData = sortedExams.map(exam => {
-                const subjectRecord = (exam.subjects || []).find(s => s.name === subject);
-                return subjectRecord ? {
-                    name: exam.name,
-                    score: subjectRecord.score
-                } : null;
-            }).filter(e => e !== null);
+                const subjectData = sortedExams.map(exam => {
+                    const subjectRecord = (exam.subjects || []).find(s => s.name === subject);
+                    return subjectRecord ? {
+                        name: exam.name,
+                        score: subjectRecord.score
+                    } : null;
+                }).filter(e => e !== null);
 
-            trendChart.data.labels = subjectData.map(e => e.name);
-            trendChart.data.datasets[0].data = subjectData.map(e => e.score);
-            trendChart.data.datasets[0].label = subject;
-            trendChart.update();
+                trendChart.data.labels = subjectData.map(e => e.name);
+                trendChart.data.datasets[0].data = subjectData.map(e => e.score);
+                trendChart.data.datasets[0].label = subject;
+                trendChart.update();
+            });
         }
 
         // ===== 科目分析 =====
-        function updateSubjectAnalysis() {
-            const exams = getExams();
+        async function updateSubjectAnalysis() {
+            const exams = await getExams();
             const container = document.getElementById('subjectAnalysis');
             
             const subjectScores = {};
@@ -1491,9 +1491,9 @@
         }
 
         // ===== 目标 =====
-        function updateTarget() {
-            const target = getTarget();
-            const exams = getExams();
+        async function updateTarget() {
+            const target = await getTarget();
+            const exams = await getExams();
             
             document.getElementById('targetValue').textContent = target;
             document.getElementById('targetInput').value = target;
@@ -1518,7 +1518,7 @@
         }
 
         // ===== 模态框操作 =====
-        function openExamModal(examId = null) {
+        async function openExamModal(examId = null) {
             const modal = document.getElementById('examModal');
             const form = document.getElementById('examForm');
             const title = document.getElementById('examModalTitle');
@@ -1526,7 +1526,7 @@
             form.reset();
             
             if (examId) {
-                const exams = getExams();
+                const exams = await getExams();
                 const exam = exams.find(e => e.id === examId);
                 if (exam) {
                     title.textContent = '编辑考试';
@@ -1564,10 +1564,10 @@
         }
 
         // 编辑科目成绩
-        function editSubjectScore(subjectIndex) {
+        async function editSubjectScore(subjectIndex) {
             if (!currentExamId) return;
             
-            const exams = getExams();
+            const exams = await getExams();
             const examIndex = exams.findIndex(e => e.id === currentExamId);
             if (examIndex === -1) return;
             
@@ -1611,9 +1611,9 @@
         // 删除考试 - 使用自定义确认框
         let pendingDeleteExamId = null;
         
-        function deleteExam(examId) {
+        async function deleteExam(examId) {
             pendingDeleteExamId = examId;
-            const exams = getExams();
+            const exams = await getExams();
             const exam = exams.find(e => e.id == examId);
             document.getElementById('confirmModalTitle').textContent = '确定删除考试？';
             document.getElementById('confirmModalMessage').textContent = exam ? `「${exam.name}」的所有成绩将被删除` : '此操作不可撤销';
@@ -1621,11 +1621,11 @@
         }
 
         // 确认删除
-        document.getElementById('confirmModalOk').addEventListener('click', function() {
+        document.getElementById('confirmModalOk').addEventListener('click', async function() {
             if (pendingDeleteExamId !== null) {
-                const exams = getExams();
+                const exams = await getExams();
                 const newExams = exams.filter(e => e.id != pendingDeleteExamId);
-                saveExams(newExams);
+                await saveExams(newExams);
                 
                 if (currentExamId == pendingDeleteExamId) {
                     currentExamId = null;
@@ -1652,10 +1652,10 @@
         });
 
         // ===== 表单提交 =====
-        document.getElementById('examForm').addEventListener('submit', function(e) {
+        document.getElementById('examForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const exams = getExams();
+            const exams = await getExams();
             const examId = this.dataset.examId;
             
             const examData = {
@@ -1682,13 +1682,13 @@
             saveExams(exams);
             closeExamModal();
             currentExamId = examData.id;
-            refreshAll();
+            await refreshAll();
         });
 
-        document.getElementById('scoreForm').addEventListener('submit', function(e) {
+        document.getElementById('scoreForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const exams = getExams();
+            const exams = await getExams();
             const examIndex = exams.findIndex(e => e.id === currentExamId);
             
             if (examIndex === -1) return;
@@ -1716,23 +1716,23 @@
             
             saveExams(exams);
             closeScoreModal();
-            refreshAll();
+            await refreshAll();
         });
 
         // ===== 刷新所有 =====
-        function refreshAll() {
-            renderExamList();
-            renderExamDetail();
-            updateStats();
+        async function refreshAll() {
+            await renderExamList();
+            await renderExamDetail();
+            await updateStats();
             updateCharts();
             updateChartTabs();
-            updateSubjectAnalysis();
-            updateTarget();
+            await updateSubjectAnalysis();
+            await updateTarget();
         }
 
         // ===== 标签页切换 =====
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', function() {
+            tab.addEventListener('click', async function() {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
                 
@@ -1747,11 +1747,11 @@
         });
 
         // ===== 目标设置 =====
-        document.getElementById('setTargetBtn').addEventListener('click', function() {
+        document.getElementById('setTargetBtn').addEventListener('click', async function() {
             const target = parseInt(document.getElementById('targetInput').value);
             if (target >= 0 && target <= 100) {
-                saveTarget(target);
-                updateTarget();
+                await saveTarget(target);
+                await updateTarget();
                 alert('目标已保存！');
             }
         });
@@ -1788,15 +1788,21 @@
                 return;
             }
             
+            // 检查 Supabase 库是否加载成功
+            if (typeof window.supabase === 'undefined') {
+                alert('Supabase 库加载失败，请刷新页面后重试');
+                return;
+            }
+            
             // 保存到本地存储
             localStorage.setItem('supabase_url', url);
             localStorage.setItem('supabase_key', key);
             
-            // 更新全局配置
-            window.SUPABASE_URL = url;
-            window.SUPABASE_ANON_KEY = key;
-            window.isCloudEnabled = true;
-            window.supabase = window.supabase.createClient(url, key);
+            // 更新全局配置并初始化客户端
+            SUPABASE_URL = url;
+            SUPABASE_ANON_KEY = key;
+            isCloudEnabled = true;
+            supabaseClient = window.supabase.createClient(url, key);
             
             // 尝试登录
             await loginAnonymously();
@@ -1815,10 +1821,10 @@
         });
 
         // ===== 数据导出导入 =====
-        document.getElementById('exportBtn').addEventListener('click', function() {
+        document.getElementById('exportBtn').addEventListener('click', async function() {
             const data = {
-                exams: getExams(),
-                target: getTarget(),
+                exams: await getExams(),
+                target: await getTarget(),
                 exportTime: new Date().toISOString()
             };
             
@@ -1850,10 +1856,10 @@
                         document.getElementById('confirmModal').classList.add('active');
                         
                         // 一次性确认处理器
-                        const confirmHandler = function() {
-                            saveExams(data.exams);
-                            if (data.target) saveTarget(data.target);
-                            refreshAll();
+                        const confirmHandler = async function() {
+                            await saveExams(data.exams);
+                            if (data.target) await saveTarget(data.target);
+                            await refreshAll();
                             alert('数据导入成功！');
                             // 清理
                             document.getElementById('confirmModal').classList.remove('active');
@@ -1881,15 +1887,15 @@
         
 
         // ===== 示例数据 =====
-        document.getElementById('demoBtn').addEventListener('click', function() {
-            if (getExams().length > 0) {
+        document.getElementById('demoBtn').addEventListener('click', async function() {
+            if ((await getExams()).length > 0) {
                 // 使用自定义确认框
                 document.getElementById('confirmModalTitle').textContent = '添加示例数据？';
                 document.getElementById('confirmModalMessage').textContent = '已有数据，添加示例将追加，确定继续吗？';
                 document.getElementById('confirmModal').classList.add('active');
                 
-                const confirmHandler = function() {
-                    addDemoData();
+                const confirmHandler = async function() {
+                    await addDemoData();
                     document.getElementById('confirmModal').classList.remove('active');
                     document.getElementById('confirmModalOk').removeEventListener('click', confirmHandler);
                     document.getElementById('confirmModalCancel').removeEventListener('click', cancelHandler);
@@ -1904,11 +1910,11 @@
                 document.getElementById('confirmModalOk').addEventListener('click', confirmHandler);
                 document.getElementById('confirmModalCancel').addEventListener('click', cancelHandler);
             } else {
-                addDemoData();
+                await addDemoData();
             }
         });
 
-        function addDemoData() {
+        async function addDemoData() {
             const demoExams = [
                 {
                     id: Date.now(),
@@ -1954,13 +1960,13 @@
                 }
             ];
             
-            const exams = getExams();
+            const exams = await getExams();
             demoExams.forEach(e => exams.push(e));
-            saveExams(exams);
-            saveTarget(85);
+            await saveExams(exams);
+            await saveTarget(85);
             
             currentExamId = demoExams[0].id;
-            refreshAll();
+            await refreshAll();
             alert('已添加3场考试示例数据！');
         }
 
