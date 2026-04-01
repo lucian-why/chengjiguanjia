@@ -181,10 +181,16 @@
 
         .profile-item-actions {
             display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .profile-item-actions .action-btns {
+            display: flex;
             gap: 6px;
         }
 
-        .profile-item-actions button {
+        .profile-item-actions .action-btns button {
             width: 28px;
             height: 28px;
             border: 1px solid var(--border-color);
@@ -194,14 +200,15 @@
             font-size: 0.8rem;
             color: var(--text-secondary);
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
-        .profile-item-actions button:hover {
+        .profile-item-actions .action-btns button:hover {
             border-color: var(--text-primary);
             color: var(--text-primary);
         }
 
-        .profile-item-actions .delete-profile-btn:hover {
+        .profile-item-actions .action-btns .delete-profile-btn:hover {
             border-color: #e88a8a;
             color: #e88a8a;
         }
@@ -348,6 +355,24 @@
 
         .exam-action-btn:hover {
             opacity: 1;
+        }
+
+        /* 排除考试按钮 */
+        .exam-action-btn.exclude-btn {
+            opacity: 0.5;
+        }
+        .exam-action-btn.exclude-btn.is-excluded {
+            opacity: 1;
+            color: #e74c3c;
+        }
+
+        /* 被排除的考试整行置灰 */
+        .exam-folder.is-excluded {
+            opacity: 0.5;
+        }
+        .exam-folder.is-excluded .exam-name {
+            text-decoration: line-through;
+            text-decoration-color: #c0b8b0;
         }
 
         /* 子科目列表 */
@@ -681,6 +706,23 @@
             border-radius: 4px;
             margin-right: 4px;
             font-size: 0.7rem;
+        }
+
+        .overview-rank-tags {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            justify-content: center;
+        }
+
+        .overview-rank-tags .rank-tag {
+            display: inline-block;
+            background: rgba(124, 169, 201, 0.15);
+            color: var(--accent-blue);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 400;
         }
 
         /* 添加科目按钮 */
@@ -1684,10 +1726,11 @@
         }
 
         // ===== 考试操作（按档案过滤） =====
-        function getExams(profileId) {
+        function getExams(profileId, excludeHidden = false) {
             const data = localStorage.getItem(EXAMS_KEY);
-            const all = data ? JSON.parse(data) : [];
-            if (profileId) return all.filter(e => e.profileId === profileId);
+            let all = data ? JSON.parse(data) : [];
+            if (profileId) all = all.filter(e => e.profileId === profileId);
+            if (excludeHidden) all = all.filter(e => !e.excluded);
             return all;
         }
 
@@ -1698,6 +1741,23 @@
 
         function saveExams(exams) {
             localStorage.setItem(EXAMS_KEY, JSON.stringify(exams));
+        }
+
+        // 切换考试排除状态
+        function toggleExamExclude(examId) {
+            const allExams = getExamsAll();
+            const exam = allExams.find(e => e.id === examId);
+            if (!exam) return;
+            exam.excluded = !exam.excluded;
+            saveExams(allExams);
+            renderExamList();
+            // 刷新当前可见的图表
+            if (currentExamId) {
+                renderExamDetail();
+                updateRadarChart();
+            }
+            updateTrendChart();
+            showToast({ icon: exam.excluded ? '🚫' : '✅', iconType: 'info', title: exam.excluded ? '已排除' : '已恢复', message: exam.excluded ? '该考试不计入统计分析' : '该考试重新计入统计' });
         }
 
         // ===== 渲染考试列表 =====
@@ -1718,9 +1778,10 @@
                 const isExpanded = currentExamId === exam.id;
                 const subjects = exam.subjects || [];
                 const totalScore = subjects.reduce((sum, s) => sum + s.score, 0);
+                const isExcluded = exam.excluded;
                 
                 return `
-                    <div class="exam-folder ${isExpanded ? 'expanded' : ''}" data-exam-id="${exam.id}">
+                    <div class="exam-folder ${isExcluded ? 'is-excluded' : ''} ${isExpanded ? 'expanded' : ''}" data-exam-id="${exam.id}">
                         <div class="exam-folder-header ${currentExamId === exam.id ? 'active' : ''}" onclick="selectExam(${exam.id})">
                             <span class="folder-icon">▶</span>
                             <div class="exam-info">
@@ -1728,6 +1789,7 @@
                                 <div class="exam-date">${exam.startDate || '未设置日期'} · ${totalScore}分</div>
                             </div>
                             <div class="exam-actions">
+                                <button class="exam-action-btn exclude-btn ${isExcluded ? 'is-excluded' : ''}" onclick="event.stopPropagation(); toggleExamExclude(${exam.id})" title="${isExcluded ? '恢复计入统计' : '排除不计入统计'}">${isExcluded ? '🚫' : '📊'}</button>
                                 <button class="exam-action-btn" onclick="event.stopPropagation(); editExam(${exam.id})" title="编辑">✎</button>
                                 <button class="exam-action-btn" onclick="event.stopPropagation(); deleteExam(${exam.id})" title="删除">×</button>
                             </div>
@@ -1749,6 +1811,14 @@
 
         // ===== 选择考试 =====
         async function selectExam(examId) {
+            // 再次点击同一考试则收起
+            if (currentExamId === examId) {
+                currentExamId = null;
+                await renderExamList();
+                renderExamDetail();
+                updateRadarChart();
+                return;
+            }
             currentExamId = examId;
             await renderExamList();
             renderExamDetail();
@@ -1787,22 +1857,10 @@
             const subjects = exam.subjects || [];
             const totalScore = subjects.reduce((sum, s) => sum + s.score, 0);
 
-            // 构建排名信息HTML
-            const totalRankInfo = [];
-            if (exam.totalClassRank) {
-                const pct = exam.classTotal ? ` (${(exam.totalClassRank / exam.classTotal * 100).toFixed(1)}%)` : '';
-                totalRankInfo.push(`<span class="rank-tag">班级第${exam.totalClassRank}名${pct}</span>`);
-            }
-            if (exam.totalGradeRank) {
-                const pct = exam.gradeTotal ? ` (${(exam.totalGradeRank / exam.gradeTotal * 100).toFixed(1)}%)` : '';
-                totalRankInfo.push(`<span class="rank-tag">校第${exam.totalGradeRank}名${pct}</span>`);
-            }
-            if (exam.classTotal) {
-                totalRankInfo.push(`<span style="font-size:0.8rem;color:var(--text-secondary);">班级${exam.classTotal}人</span>`);
-            }
-            if (exam.gradeTotal) {
-                totalRankInfo.push(`<span style="font-size:0.8rem;color:var(--text-secondary);">年级${exam.gradeTotal}人</span>`);
-            }
+            // 构建总分旁的排名标签
+            const totalRankTags = [];
+            if (exam.totalClassRank) totalRankTags.push(`班${exam.totalClassRank}`);
+            if (exam.totalGradeRank) totalRankTags.push(`校${exam.totalGradeRank}`);
 
             container.innerHTML = `
                 <div class="exam-overview">
@@ -1813,10 +1871,9 @@
                     <div class="overview-card">
                         <div class="label">总分</div>
                         <div class="value highlight">${totalScore}</div>
+                        ${totalRankTags.length > 0 ? `<div class="overview-rank-tags">${totalRankTags.map(r => `<span class="rank-tag">${r}</span>`).join('')}</div>` : ''}
                     </div>
                 </div>
-
-                ${totalRankInfo.length > 0 ? `<div style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">${totalRankInfo.join('')}</div>` : ''}
 
                 <div style="margin-bottom: 16px;"><button class="share-report-btn" onclick="openShareExamReport()">📤 分享考试报告</button></div>
 
@@ -1932,7 +1989,7 @@
         }
 
         function renderRadarCompareChips() {
-            const exams = getExams(getActiveProfileId());
+            const exams = getExams(getActiveProfileId(), true);
             const chipsEl = document.getElementById('radarCompareChips');
             const hintEl = document.getElementById('radarCompareHint');
             const headerEl = document.querySelector('.radar-header');
@@ -2222,7 +2279,7 @@
         }
 
         function updateTrendChart() {
-            const exams = getExams(getActiveProfileId());
+            const exams = getExams(getActiveProfileId(), true);
             const sortedExams = [...exams].sort((a, b) => new Date(a.startDate || a.createdAt) - new Date(b.startDate || b.createdAt));
 
             // 确保canvas可见（清除可能存在的空状态提示）
@@ -2347,7 +2404,7 @@
         }
 
         function updateChartTabs() {
-            const exams = getExams(getActiveProfileId());
+            const exams = getExams(getActiveProfileId(), true);
             const container = document.getElementById('chartTabs');
             const rankSelect = document.getElementById('rankTypeSelect');
             const subjects = [...new Set(exams.flatMap(e => (e.subjects || []).map(s => s.name)))];
@@ -2655,9 +2712,11 @@
                             <div class="profile-item-exams">${examCount} 条考试记录</div>
                         </div>
                         <div class="profile-item-actions" onclick="event.stopPropagation()">
-                            ${examCount > 0 ? `<button class="share-profile-btn" onclick="openShareProfileReport(${i})" title="分享档案报告">📤 分享报告</button>` : ''}
-                            <button onclick="renameProfile(${i})" title="重命名">✎</button>
-                            ${profiles.length > 1 ? `<button class="delete-profile-btn" onclick="confirmDeleteProfile(${i})" title="删除档案">🗑</button>` : ''}
+                            <button class="share-profile-btn" onclick="openShareProfileReport(${i})" title="分享档案报告">📤 分享报告</button>
+                            <div class="action-btns">
+                                <button onclick="renameProfile(${i})" title="重命名">✎</button>
+                                ${profiles.length > 1 ? `<button class="delete-profile-btn" onclick="confirmDeleteProfile(${i})" title="删除档案">🗑</button>` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -2690,8 +2749,7 @@
             // 找到对应的 profile-item，把名称替换为输入框
             const items = document.querySelectorAll('.profile-item');
             for (const item of items) {
-                const switchBtn = item.querySelector(`[onclick*="switchToProfile(${index})"]`);
-                if (!switchBtn) continue;
+                if (!item.getAttribute('onclick')?.includes(`switchToProfile(${index})`)) continue;
                 const nameEl = item.querySelector('.profile-item-name');
                 if (!nameEl) continue;
                 nameEl.innerHTML = `<input type="text" class="rename-input" value="${p.name}" maxlength="20" style="flex:1;padding:4px 8px;border:1px solid var(--accent-blue);border-radius:6px;font-size:0.9rem;font-family:inherit;outline:none;">`;
