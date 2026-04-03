@@ -1530,6 +1530,175 @@
             opacity: 0.9;
             transform: translateY(-1px);
         }
+
+        /* ===== 批量填写入口 ===== */
+        .card-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .batch-inline-btn {
+            padding: 6px 16px;
+            font-size: 0.82rem;
+            color: #c07a50;
+            background: none;
+            border: 1px solid rgba(232, 168, 124, 0.4);
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .batch-inline-btn:hover {
+            background: rgba(232, 168, 124, 0.1);
+            border-color: var(--accent-warm);
+        }
+
+        /* ===== 批量填写弹窗 ===== */
+        .batch-modal {
+            max-width: 580px;
+        }
+
+        .batch-body {
+            margin-bottom: 20px;
+        }
+
+        .batch-table-wrap {
+            overflow-x: auto;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .batch-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .batch-table th {
+            background: var(--bg-primary);
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .batch-table td {
+            padding: 6px 6px;
+            border-bottom: 1px solid rgba(232, 228, 222, 0.4);
+            vertical-align: middle;
+        }
+
+        .batch-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .batch-col-name { width: 30%; }
+        .batch-col-score { width: 20%; }
+        .batch-col-rank { width: 18%; }
+        .batch-col-del { width: 36px; text-align: center; }
+
+        .batch-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.88rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .batch-input:focus {
+            outline: none;
+            border-color: var(--accent-warm);
+        }
+
+        .batch-del-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: #fee;
+            color: #e05555;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .batch-del-btn:hover {
+            background: #fdd;
+        }
+
+        .batch-add-row {
+            display: flex;
+            gap: 0;
+            align-items: center;
+            padding-top: 14px;
+            margin-top: 4px;
+        }
+
+        .batch-add-input {
+            flex: 1;
+            height: 42px;
+            padding: 0 14px;
+            border: 1.5px solid var(--border-color);
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            font-size: 0.88rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .batch-add-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+
+        .batch-add-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px rgba(124, 185, 139, 0.15);
+        }
+
+        .batch-add-btn {
+            height: 42px;
+            padding: 0 20px;
+            background: linear-gradient(135deg, #7cb98b 0%, #5da86d 100%);
+            color: #fff;
+            border: 1.5px solid transparent;
+            border-radius: 0 10px 10px 0;
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+        }
+
+        .batch-add-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(124, 185, 139, 0.35);
+            filter: brightness(1.05);
+        }
+
+        .batch-add-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 4px rgba(124, 185, 139, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -1795,6 +1964,40 @@
                     <button type="submit" class="btn btn-primary" style="flex:1;">保存</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 批量填写弹窗 -->
+    <div class="modal-overlay" id="batchModal">
+        <div class="modal batch-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">📝 批量填写成绩</h3>
+                <button class="modal-close" id="batchModalClose">&times;</button>
+            </div>
+            <div class="batch-body">
+                <div class="batch-table-wrap">
+                    <table class="batch-table">
+                        <thead>
+                            <tr>
+                                <th class="batch-col-name">科目</th>
+                                <th class="batch-col-score">成绩</th>
+                                <th class="batch-col-rank">班排名</th>
+                                <th class="batch-col-rank">年排名</th>
+                                <th class="batch-col-del"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="batch-add-row">
+                    <input type="text" class="batch-add-input" id="newBatchSubject" placeholder="输入新科目名称，回车添加">
+                    <button type="button" class="batch-add-btn" onclick="addBatchSubject()">添加科目</button>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;display:flex;gap:10px;">
+                <button class="btn btn-secondary" id="batchModalCancel" style="flex:1;">取消</button>
+                <button class="btn btn-primary" id="batchSaveBtn" style="flex:1;">全部保存</button>
+            </div>
         </div>
     </div>
 
@@ -2084,7 +2287,10 @@
                 ${exam.notes ? `<p style="color: var(--text-secondary); margin-bottom: 20px; font-style: italic;">${exam.notes}</p>` : ''}
 
                 <div class="card">
-                    <h2 class="card-title">各科成绩</h2>
+                    <div class="card-title-row">
+                        <h2 class="card-title" style="margin-bottom:0;">各科成绩</h2>
+                        <button class="batch-inline-btn" onclick="openBatchModal()">📝 批量填写</button>
+                    </div>
                     <div class="subject-cards">
                         ${subjects.map((s, index) => {
                             let rankHtml = '';
@@ -3099,6 +3305,160 @@
             document.getElementById('scoreModal').classList.remove('active');
         }
 
+        // ===== 批量填写 =====
+        let batchList = [];
+
+        function openBatchModal() {
+            if (!currentExamId) {
+                showToast({ icon: '💡', iconType: 'info', title: '提示', message: '请先选择一个考试' });
+                return;
+            }
+            const exams = getExams(getActiveProfileId());
+            const exam = exams.find(e => e.id === currentExamId);
+            if (!exam) return;
+
+            batchList = (exam.subjects || []).map(s => ({
+                name: s.name,
+                score: s.score !== undefined ? String(s.score) : '',
+                classRank: s.classRank ? String(s.classRank) : '',
+                gradeRank: s.gradeRank ? String(s.gradeRank) : '',
+                fullScore: s.fullScore || 100
+            }));
+
+            if (batchList.length === 0) {
+                batchList.push({ name: '', score: '', classRank: '', gradeRank: '', fullScore: 100 });
+            }
+
+            renderBatchTable();
+            document.getElementById('newBatchSubject').value = '';
+            document.getElementById('batchModal').classList.add('active');
+        }
+
+        function closeBatchModal() {
+            document.getElementById('batchModal').classList.remove('active');
+            batchList = [];
+        }
+
+        function renderBatchTable() {
+            // 先同步所有 input 当前值到 batchList
+            const tbody = document.getElementById('batchTableBody');
+            tbody.querySelectorAll('.batch-input').forEach(input => {
+                const idx = parseInt(input.dataset.idx);
+                const field = input.dataset.field;
+                if (!isNaN(idx) && field && batchList[idx]) {
+                    batchList[idx][field] = input.value;
+                }
+            });
+
+            tbody.innerHTML = batchList.map((s, i) => `
+                <tr>
+                    <td class="batch-col-name"><input type="text" class="form-control batch-input" value="${escHtml(s.name)}" data-idx="${i}" data-field="name" placeholder="科目名"></td>
+                    <td class="batch-col-score"><input type="number" class="form-control batch-input" value="${s.score}" data-idx="${i}" data-field="score" placeholder="分数"></td>
+                    <td class="batch-col-rank"><input type="number" class="form-control batch-input" value="${s.classRank}" data-idx="${i}" data-field="classRank" placeholder="选填"></td>
+                    <td class="batch-col-rank"><input type="number" class="form-control batch-input" value="${s.gradeRank}" data-idx="${i}" data-field="gradeRank" placeholder="选填"></td>
+                    <td class="batch-col-del"><button type="button" class="batch-del-btn" data-idx="${i}">&times;</button></td>
+                </tr>
+            `).join('');
+
+            // 绑定 input 事件（值同步到 batchList）
+            tbody.querySelectorAll('.batch-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    const field = e.target.dataset.field;
+                    batchList[idx][field] = e.target.value;
+                });
+            });
+
+            // 删除按钮用事件委托
+            tbody.querySelectorAll('.batch-del-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    removeBatchSubject(parseInt(e.currentTarget.dataset.idx));
+                });
+            });
+        }
+
+        function escHtml(str) {
+            if (str === null || str === undefined) return '';
+            const d = document.createElement('div');
+            d.textContent = String(str);
+            return d.innerHTML;
+        }
+
+        function removeBatchSubject(index) {
+            if (batchList.length <= 1) {
+                showToast({ icon: '💡', iconType: 'info', title: '提示', message: '至少保留一个科目' });
+                return;
+            }
+            batchList.splice(index, 1);
+            renderBatchTable();
+        }
+
+        function addBatchSubject() {
+            const name = document.getElementById('newBatchSubject').value.trim();
+            if (!name) {
+                showToast({ icon: '💡', iconType: 'info', title: '提示', message: '请输入科目名' });
+                return;
+            }
+
+            // 从历史考试中查找该科目的满分值
+            const allExams = getExams(getActiveProfileId()).filter(ex => ex.id !== currentExamId);
+            let fullScore = 100;
+            for (const exam of allExams) {
+                const found = (exam.subjects || []).find(s => s.name === name);
+                if (found && found.fullScore) {
+                    fullScore = found.fullScore;
+                    break;
+                }
+            }
+
+            batchList.push({ name, score: '', classRank: '', gradeRank: '', fullScore });
+            document.getElementById('newBatchSubject').value = '';
+            renderBatchTable();
+        }
+
+        async function saveBatch() {
+            // 先同步所有 input 当前值
+            const tbody = document.getElementById('batchTableBody');
+            tbody.querySelectorAll('.batch-input').forEach(input => {
+                const idx = parseInt(input.dataset.idx);
+                const field = input.dataset.field;
+                if (!isNaN(idx) && field && batchList[idx]) {
+                    batchList[idx][field] = input.value;
+                }
+            });
+
+            const validSubjects = batchList.filter(s => s.name.trim());
+            if (validSubjects.length === 0) {
+                showToast({ icon: '💡', iconType: 'info', title: '提示', message: '至少填写一个科目' });
+                return;
+            }
+
+            for (const s of validSubjects) {
+                if (s.score === '' || isNaN(Number(s.score))) {
+                    showToast({ icon: '💡', iconType: 'info', title: '提示', message: `「${s.name}」成绩无效` });
+                    return;
+                }
+            }
+
+            const allExams = getExamsAll();
+            const target = allExams.find(e => e.id === currentExamId);
+            if (!target) return;
+
+            target.subjects = validSubjects.map(s => ({
+                name: s.name.trim(),
+                score: Number(s.score),
+                fullScore: isNaN(Number(s.fullScore)) ? 100 : Number(s.fullScore),
+                classRank: s.classRank ? Number(s.classRank) : undefined,
+                gradeRank: s.gradeRank ? Number(s.gradeRank) : undefined
+            }));
+
+            saveExams(allExams);
+            closeBatchModal();
+            await refreshAll();
+            showToast({ icon: '✅', iconType: 'success', title: '成功', message: '成绩已批量保存' });
+        }
+
         // ===== 考试操作 =====
         function editExam(examId) {
             openExamModal(examId);
@@ -3123,9 +3483,9 @@
                 _confirmCallback = null;
             }
             if (pendingDeleteExamId !== null) {
-                const exams = getExams(getActiveProfileId());
-                const newExams = exams.filter(e => e.id != pendingDeleteExamId);
-                await saveExams(newExams);
+                const allExams = getExamsAll();
+                const newExams = allExams.filter(e => e.id != pendingDeleteExamId);
+                saveExams(newExams);
                 
                 if (currentExamId == pendingDeleteExamId) {
                     currentExamId = null;
@@ -3860,6 +4220,14 @@
         document.getElementById('scoreModalClose').addEventListener('click', closeScoreModal);
         document.getElementById('scoreModalCancel').addEventListener('click', closeScoreModal);
         document.getElementById('newExamBtn').addEventListener('click', () => openExamModal());
+
+        // 批量填写事件
+        document.getElementById('batchModalClose').addEventListener('click', closeBatchModal);
+        document.getElementById('batchModalCancel').addEventListener('click', closeBatchModal);
+        document.getElementById('batchSaveBtn').addEventListener('click', saveBatch);
+        document.getElementById('newBatchSubject').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addBatchSubject(); }
+        });
 
         // ===== 档案事件 =====
         document.getElementById('profileSelect').addEventListener('change', function() {
