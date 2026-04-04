@@ -71,8 +71,8 @@ export async function renderExamDetail() {
     if (!state.currentExamId) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">馃摑</div>
-                <p>閫夋嫨涓€鍦鸿€冭瘯鏌ョ湅璇︽儏<br>鎴栨柊寤轰竴鍦鸿€冭瘯</p>
+                <div class="empty-state-icon">📝</div>
+                <p>选择一场考试查看详情<br>或新建一场考试</p>
             </div>
         `;
         return;
@@ -80,7 +80,7 @@ export async function renderExamDetail() {
 
     const exam = exams.find(item => String(item.id) === String(state.currentExamId));
     if (!exam) {
-        container.innerHTML = '<div class="empty-state"><p>鑰冭瘯涓嶅瓨鍦?/p></div>';
+        container.innerHTML = '<div class="empty-state"><p>考试不存在</p></div>';
         return;
     }
 
@@ -89,21 +89,21 @@ export async function renderExamDetail() {
     const totalMismatch = hasManualTotalMismatch(exam);
     const totalRankTags = [];
 
-    if (exam.totalClassRank) totalRankTags.push(`鐝${exam.totalClassRank}`);
-    if (exam.totalGradeRank) totalRankTags.push(`骞寸${exam.totalGradeRank}`);
+    if (exam.totalClassRank) totalRankTags.push(`班级第${exam.totalClassRank}`);
+    if (exam.totalGradeRank) totalRankTags.push(`年级第${exam.totalGradeRank}`);
 
     const totalCardContent = state.isEditingTotalScore
         ? `
             <div class="inline-total-score-editor">
-                ${totalMismatch ? `<button type="button" class="total-score-alert-btn" onclick="confirmRestoreAutoTotalScore()" title="鎭㈠涓哄悇绉戣嚜鍔ㄨ绠楃殑鎬诲垎">!</button>` : ''}
+                ${totalMismatch ? `<button type="button" class="total-score-alert-btn" onclick="confirmRestoreAutoTotalScore()" title="恢复为各科自动计算的总分">!</button>` : ''}
                 <input id="manualTotalScoreInput" class="inline-total-score-input" type="number" inputmode="numeric" value="${state.manualTotalDraft || totalScore}" oninput="onManualTotalScoreInput(this.value)" onblur="handleManualTotalScoreBlur()" onkeydown="handleManualTotalScoreKeydown(event)" autofocus>
-                <button type="button" class="inline-total-score-save" onclick="saveInlineTotalScore()">淇濆瓨</button>
-                <button type="button" class="inline-total-score-cancel" onmousedown="prepareCancelInlineTotalScore()" onclick="cancelInlineTotalScore()">鍙栨秷</button>
+                <button type="button" class="inline-total-score-save" onclick="saveInlineTotalScore()">保存</button>
+                <button type="button" class="inline-total-score-cancel" onmousedown="prepareCancelInlineTotalScore()" onclick="cancelInlineTotalScore()">取消</button>
             </div>
         `
         : `
             <div class="inline-total-score-wrap">
-                ${totalMismatch ? `<button type="button" class="total-score-alert-btn" onclick="event.stopPropagation(); confirmRestoreAutoTotalScore()" title="鎭㈠涓哄悇绉戣嚜鍔ㄨ绠楃殑鎬诲垎">!</button>` : ''}
+                ${totalMismatch ? `<button type="button" class="total-score-alert-btn" onclick="event.stopPropagation(); confirmRestoreAutoTotalScore()" title="恢复为各科自动计算的总分">!</button>` : ''}
                 <button type="button" class="inline-total-score-trigger" onclick="startEditTotalScore()">${totalScore}</button>
             </div>
         `;
@@ -111,31 +111,31 @@ export async function renderExamDetail() {
     container.innerHTML = `
         <div class="exam-overview">
             <div class="overview-card">
-                <div class="label">鑰冭瘯鍚嶇О</div>
+                <div class="label">考试名称</div>
                 <div class="value">${exam.name}</div>
             </div>
             <div class="overview-card">
-                <div class="label">鎬诲垎</div>
+                <div class="label">总分</div>
                 <div class="value highlight total-score-card-value">${totalCardContent}</div>
                 ${totalRankTags.length > 0 ? `<div class="overview-rank-tags">${totalRankTags.map(tag => `<span class="rank-tag">${tag}</span>`).join('')}</div>` : ''}
             </div>
         </div>
 
-        <div style="margin-bottom: 16px;"><button class="share-report-btn" onclick="openShareExamReport()">馃摛 鍒嗕韩鑰冭瘯鎶ュ憡</button></div>
+        <div style="margin-bottom: 16px;"><button class="share-report-btn" onclick="openShareExamReport()">📤 分享考试报告</button></div>
 
-        ${exam.startDate ? `<p style="color: var(--text-secondary); margin-bottom: 20px;">馃搮 ${exam.startDate}${exam.endDate && exam.endDate !== exam.startDate ? ' ~ ' + exam.endDate : ''}</p>` : ''}
+        ${exam.startDate ? `<p style="color: var(--text-secondary); margin-bottom: 20px;">📅 ${exam.startDate}${exam.endDate && exam.endDate !== exam.startDate ? ' ~ ' + exam.endDate : ''}</p>` : ''}
         ${exam.notes ? `<p style="color: var(--text-secondary); margin-bottom: 20px; font-style: italic;">${exam.notes}</p>` : ''}
 
         <div class="card">
             <div class="card-title-row">
-                <h2 class="card-title" style="margin-bottom:0;">鍚勭鎴愮哗</h2>
-                <button class="batch-inline-btn" onclick="openBatchModal()">馃摑 鎵归噺濉啓</button>
+                <h2 class="card-title" style="margin-bottom:0;">各科成绩</h2>
+                <button class="batch-inline-btn" onclick="openBatchModal()">📝 批量填写</button>
             </div>
             <div class="subject-cards">
                 ${subjects.map((subject, index) => {
                     let rankHtml = '';
-                    if (subject.classRank) rankHtml += `<span class="rank-tag">鐝${subject.classRank}</span>`;
-                    if (subject.gradeRank) rankHtml += `<span class="rank-tag">骞寸${subject.gradeRank}</span>`;
+                    if (subject.classRank) rankHtml += `<span class="rank-tag">班级第${subject.classRank}</span>`;
+                    if (subject.gradeRank) rankHtml += `<span class="rank-tag">年级第${subject.gradeRank}</span>`;
                     return `
                         <div class="subject-card" onclick="editSubjectScore(${index})">
                             <div class="name">${subject.name}</div>
@@ -146,7 +146,7 @@ export async function renderExamDetail() {
                 }).join('')}
                 <div class="add-subject-btn" onclick="openScoreModal()">
                     <span style="font-size: 1.5rem;">+</span>
-                    <span>娣诲姞鎴愮哗</span>
+                    <span>添加成绩</span>
                 </div>
             </div>
         </div>
@@ -199,7 +199,7 @@ export async function saveInlineTotalScore() {
     } else {
         const total = Number(rawValue);
         if (Number.isNaN(total)) {
-            showToast({ icon: '鈿狅笍', iconType: 'warning', title: '杈撳叆鏈夎', message: '璇疯緭鍏ユ湁鏁堟€诲垎' });
+            showToast({ icon: '⚠️', iconType: 'warning', title: '输入有误', message: '请输入有效总分' });
             return;
         }
         allExams[examIndex].manualTotalScore = total;
@@ -237,7 +237,7 @@ export function confirmRestoreAutoTotalScore() {
     const exam = exams.find(item => String(item.id) === String(state.currentExamId));
     if (!exam || !hasManualTotalMismatch(exam)) return;
 
-    document.getElementById('confirmModalTitle').textContent = '鎭㈠鑷姩鎬诲垎';
+    document.getElementById('confirmModalTitle').textContent = '鎭㈠鑷姩总分';
     document.getElementById('confirmModalMessage').textContent = '确定按各科成绩重新计算总分吗？当前手动修改的总分将被清除。';
     state._confirmCallback = async () => {
         const allExams = getExamsAll();
@@ -268,7 +268,7 @@ export async function openExamModal(examId = null) {
         const exams = getExams(getActiveProfileId());
         const exam = exams.find(item => item.id === examId);
         if (exam) {
-            title.textContent = '缂栬緫鑰冭瘯';
+            title.textContent = '编辑考试';
             document.getElementById('examName').value = exam.name;
             startDateInput.value = exam.startDate || '';
             endDateInput.value = exam.endDate || '';
@@ -282,7 +282,7 @@ export async function openExamModal(examId = null) {
         }
     } else {
         const rememberedDefaults = getRememberedExamDefaults(getActiveProfileId());
-        title.textContent = '鏂板缓鑰冭瘯';
+        title.textContent = '新建考试';
         startDateInput.value = new Date().toISOString().split('T')[0];
         endDateInput.value = addDays(startDateInput.value, 1);
         endDateInput.dataset.autoValue = endDateInput.value;
@@ -300,7 +300,7 @@ export function closeExamModal() {
 
 export function openScoreModal() {
     if (!state.currentExamId) {
-        showToast({ icon: '馃搶', iconType: 'info', title: '鎻愮ず', message: '璇峰厛閫夋嫨涓€鍦鸿€冭瘯' });
+        showToast({ icon: '📌', iconType: 'info', title: '提示', message: '请先选择一场考试' });
         return;
     }
 
@@ -312,7 +312,7 @@ export function openScoreModal() {
     document.getElementById('scoreClassRank').value = '';
     document.getElementById('scoreGradeRank').value = '';
     updateScoreMax();
-    document.getElementById('scoreModalTitle').textContent = '娣诲姞鎴愮哗';
+    document.getElementById('scoreModalTitle').textContent = '添加成绩';
     document.getElementById('scoreModal').classList.add('active');
 }
 
@@ -339,7 +339,7 @@ export async function editSubjectScore(subjectIndex) {
 
     form.dataset.subjectIndex = subjectIndex;
     updateScoreMax();
-    document.getElementById('scoreModalTitle').textContent = '缂栬緫鎴愮哗';
+    document.getElementById('scoreModalTitle').textContent = '编辑成绩';
     document.getElementById('scoreModal').classList.add('active');
 }
 
@@ -355,10 +355,10 @@ export async function deleteExam(examId) {
     state.pendingDeleteExamId = examId;
     const exams = getExams(getActiveProfileId());
     const exam = exams.find(item => item.id == examId);
-    document.getElementById('confirmModalTitle').textContent = '纭畾鍒犻櫎鑰冭瘯鍚楋紵';
+    document.getElementById('confirmModalTitle').textContent = '确定删除考试吗？';
     document.getElementById('confirmModalMessage').textContent = exam
         ? `“${exam.name}”的所有成绩都会被删除`
-        : '姝ゆ搷浣滀笉鍙挙閿€';
+        : '此操作不可撤销';
     document.getElementById('confirmModal').classList.add('active');
 }
 
@@ -515,5 +515,6 @@ export function setupModalCloseEvents() {
         }
     });
 }
+
 
 

@@ -76,7 +76,7 @@ function toggleExamExclude(examId) {
 
 async function ensureCloudAuth() {
     if (!isAuthEnabled()) {
-        showToast({ icon: '⚙️', iconType: 'warning', title: '未启用云端登录', message: '当前环境还没有配置 Supabase 登录，暂时无法使用云端同步。' });
+        showToast({ icon: '⚙️', iconType: 'warning', title: '未启用云端登录', message: '当前部署环境没有注入 Supabase 登录变量，请检查 GitHub Actions Secrets 后重新部署。' });
         return false;
     }
 
@@ -293,5 +293,6 @@ async function startApp() {
 }
 
 startApp();
+
 
 
