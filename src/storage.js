@@ -1,4 +1,4 @@
-/**
+﻿/**
  * storage.js - 数据存储层
  */
 
@@ -64,7 +64,6 @@ function deleteProfile(id) {
     }
 }
 
-// 首次启动时至少保证存在一个默认档案
 function migrateProfilesIfNeeded() {
     const profiles = getProfiles();
     if (profiles.length > 0) {
@@ -117,6 +116,16 @@ function getProfileMemory(profileId) {
     return memory[profileId] || { examDefaults: {}, subjectFullScores: {} };
 }
 
+function setProfileMemory(profileId, profileMemory) {
+    if (!profileId) return;
+    const memory = getFormMemoryAll();
+    memory[profileId] = {
+        examDefaults: profileMemory?.examDefaults || {},
+        subjectFullScores: profileMemory?.subjectFullScores || {}
+    };
+    saveFormMemoryAll(memory);
+}
+
 function normalizeSubjectName(subjectName) {
     return String(subjectName || '').trim();
 }
@@ -158,6 +167,97 @@ function getRememberedSubjectFullScore(profileId, subjectName) {
     return remembered ? Number(remembered) : null;
 }
 
+function estimateByteSize(value) {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+function getLocalProfileBundle(profileId) {
+    const profiles = getProfiles();
+    const profile = profiles.find(item => item.id === profileId);
+    if (!profile) return null;
+
+    const exams = getExams(profileId);
+    const formMemory = getProfileMemory(profileId);
+    const bundle = {
+        profile: { ...profile },
+        exams: exams.map(exam => ({ ...exam })),
+        formMemory: { ...formMemory },
+        exportedAt: new Date().toISOString()
+    };
+
+    return {
+        profileId,
+        profileName: profile.name,
+        examCount: exams.length,
+        dataSize: estimateByteSize(bundle),
+        bundle
+    };
+}
+
+function getAllLocalProfileBundles() {
+    return getProfiles()
+        .map(profile => getLocalProfileBundle(profile.id))
+        .filter(Boolean);
+}
+
+function getExamTimestamp(exam) {
+    const value = exam?.updatedAt || exam?.createdAt || exam?.endDate || exam?.startDate || '1970-01-01T00:00:00.000Z';
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function mergeExamLists(localExams = [], cloudExams = []) {
+    const examMap = new Map();
+
+    for (const exam of localExams) {
+        examMap.set(exam.id, { source: 'local', data: { ...exam } });
+    }
+
+    for (const exam of cloudExams) {
+        const existing = examMap.get(exam.id);
+        if (!existing || getExamTimestamp(exam) >= getExamTimestamp(existing.data)) {
+            examMap.set(exam.id, { source: 'cloud', data: { ...exam } });
+        }
+    }
+
+    return Array.from(examMap.values())
+        .map(item => item.data)
+        .sort((a, b) => getExamTimestamp(b) - getExamTimestamp(a));
+}
+
+function applyCloudProfileBundle(cloudBundle) {
+    const payload = cloudBundle?.profile_data || cloudBundle?.bundle || cloudBundle;
+    if (!payload?.profile) {
+        throw new Error('云端档案数据结构无效');
+    }
+
+    const localProfiles = getProfiles();
+    const localExams = getExamsAll();
+    const incomingProfile = { ...payload.profile };
+    const incomingExams = (payload.exams || []).map(exam => ({ ...exam, profileId: incomingProfile.id }));
+    const existingProfileIndex = localProfiles.findIndex(profile => profile.id === incomingProfile.id);
+
+    if (existingProfileIndex >= 0) {
+        localProfiles[existingProfileIndex] = {
+            ...localProfiles[existingProfileIndex],
+            ...incomingProfile,
+            name: incomingProfile.name || localProfiles[existingProfileIndex].name
+        };
+    } else {
+        localProfiles.push(incomingProfile);
+    }
+
+    const otherExams = localExams.filter(exam => exam.profileId !== incomingProfile.id);
+    const mergedProfileExams = mergeExamLists(
+        localExams.filter(exam => exam.profileId === incomingProfile.id),
+        incomingExams
+    );
+
+    saveProfiles(localProfiles);
+    saveExams(otherExams.concat(mergedProfileExams));
+    setProfileMemory(incomingProfile.id, payload.formMemory || {});
+}
+
 export {
     EXAMS_KEY,
     PROFILES_KEY,
@@ -174,8 +274,16 @@ export {
     getExams,
     getExamsAll,
     saveExams,
+    getFormMemoryAll,
+    saveFormMemoryAll,
+    getProfileMemory,
+    setProfileMemory,
     rememberExamDefaults,
     getRememberedExamDefaults,
     rememberSubjectFullScore,
     getRememberedSubjectFullScore,
+    getLocalProfileBundle,
+    getAllLocalProfileBundles,
+    mergeExamLists,
+    applyCloudProfileBundle,
 };

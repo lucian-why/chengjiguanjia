@@ -2,6 +2,7 @@
 import { migrateProfilesIfNeeded, getExams, getExamsAll, saveExams, getActiveProfileId } from './storage.js';
 import { initSupabase, isAuthEnabled, getCurrentUser, onAuthStateChange, signOut } from './auth.js';
 import { showLoginPage, hideLoginPage, renderAuthStatus, clearAuthStatus, setLoginSuccessHandler, setLogoutHandler } from './login-ui.js';
+import { showConfirmDialog, showToast } from './modal.js';
 import { setUpdateTrendChart, updateScoreMax } from './utils.js';
 import { renderExamList, selectExam, selectSubject, setDependencies as setExamListDeps } from './exam-list.js';
 import { renderExamDetail, openExamModal, openScoreModal, editSubjectScore, editExam, deleteExam, setupConfirmModalEvents, setupExamFormSubmit, setupScoreFormSubmit, setupModalCloseEvents, startEditTotalScore, onManualTotalScoreInput, prepareCancelInlineTotalScore, cancelInlineTotalScore, saveInlineTotalScore, handleManualTotalScoreBlur, handleManualTotalScoreKeydown, confirmRestoreAutoTotalScore, setDependencies as setExamDetailDeps } from './exam-detail.js';
@@ -13,10 +14,12 @@ import { openChartZoom, closeChartZoom } from './chart-zoom.js';
 import { setupImportExport, setDependencies as setImportExportDeps } from './import-export.js';
 import { openShareExamReport, openShareProfileReport, closeShareReport, downloadReport, setupReportEvents } from './report.js';
 import { setupDemoBtn, checkFirstLaunch, setDependencies as setDemoDataDeps } from './demo-data.js';
+import { openCloudSyncPanel, closeCloudSyncPanel, setDependencies as setCloudSyncDeps } from './cloud-sync-ui.js';
 
 let appEventsBound = false;
 let appCoreReady = false;
 let authWatcherBound = false;
+let pendingPostLoginAction = '';
 
 async function refreshAll() {
     renderProfileSwitcher();
@@ -71,6 +74,29 @@ function toggleExamExclude(examId) {
     refreshAll();
 }
 
+async function ensureCloudAuth() {
+    if (!isAuthEnabled()) {
+        showToast({ icon: '⚙️', iconType: 'warning', title: '未启用云端登录', message: '当前环境还没有配置 Supabase 登录，暂时无法使用云端同步。' });
+        return false;
+    }
+
+    const user = await getCurrentUser();
+    if (user) {
+        return true;
+    }
+
+    pendingPostLoginAction = 'cloud-sync';
+    showLoginPage('云端同步需要先登录，请发送邮箱魔法链接完成登录。');
+    return false;
+}
+
+async function handleCloudSyncEntry() {
+    if (!await ensureCloudAuth()) {
+        return;
+    }
+    await openCloudSyncPanel();
+}
+
 setExamListDeps({ renderExamDetail, updateRadarChart });
 setExamDetailDeps({ refreshAll });
 setBatchDeps({ refreshAll });
@@ -78,6 +104,7 @@ setProfileDeps({ refreshAll });
 setChartTrendDeps({ updateRadarChart });
 setImportExportDeps({ refreshAll });
 setDemoDataDeps({ refreshAll });
+setCloudSyncDeps({ refreshAll, ensureCloudAuth: handleCloudSyncEntry });
 setUpdateTrendChart(updateTrendChart);
 
 function bindWindowGlobals() {
@@ -108,6 +135,7 @@ function bindWindowGlobals() {
     window.updateScoreMax = updateScoreMax;
     window.openChartZoom = openChartZoom;
     window.closeChartZoom = closeChartZoom;
+    window.closeCloudSyncPanel = closeCloudSyncPanel;
 }
 
 function bindAppEvents() {
@@ -153,6 +181,25 @@ function bindAppEvents() {
 
     document.getElementById('profileManageBtn')?.addEventListener('click', openProfileSettings);
     document.getElementById('addProfileBtn')?.addEventListener('click', addNewProfile);
+    document.getElementById('cloudSyncBtn')?.addEventListener('click', async () => {
+        const user = isAuthEnabled() ? await getCurrentUser() : null;
+        if (!user) {
+            showConfirmDialog({
+                icon: '☁️',
+                iconType: 'info',
+                title: '云端同步需要登录',
+                message: '登录后即可把本地档案备份到云端，或从云端恢复成绩数据。',
+                okText: '去登录',
+                okClass: 'confirm-ok-btn blue',
+                onConfirm: async () => {
+                    await ensureCloudAuth();
+                }
+            });
+            return;
+        }
+
+        await openCloudSyncPanel();
+    });
 
     setupModalCloseEvents();
     setupConfirmModalEvents();
@@ -189,6 +236,11 @@ async function handleSignedIn(user) {
     hideLoginPage();
     renderAuthStatus(user);
     await initCoreApp();
+
+    if (pendingPostLoginAction === 'cloud-sync') {
+        pendingPostLoginAction = '';
+        await openCloudSyncPanel();
+    }
 }
 
 function setupAuthHandlers() {
@@ -196,7 +248,9 @@ function setupAuthHandlers() {
     setLogoutHandler(async () => {
         await signOut();
         clearAuthStatus();
-        showLoginPage('已退出登录');
+        closeCloudSyncPanel();
+        hideLoginPage();
+        showToast({ icon: '👋', title: '已退出登录', message: '网页仍可继续使用，云端同步功能需要重新登录。' });
     });
 
     if (authWatcherBound) return;
@@ -204,7 +258,8 @@ function setupAuthHandlers() {
     onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT') {
             clearAuthStatus();
-            showLoginPage('请登录后继续使用云端功能');
+            closeCloudSyncPanel();
+            hideLoginPage();
             return;
         }
 
@@ -219,9 +274,10 @@ function setupAuthHandlers() {
 async function startApp() {
     initSupabase();
 
+    await initCoreApp();
+
     if (!isAuthEnabled()) {
         clearAuthStatus();
-        await initCoreApp();
         return;
     }
 
@@ -229,7 +285,7 @@ async function startApp() {
     const user = await getCurrentUser();
     if (!user) {
         clearAuthStatus();
-        showLoginPage('请先登录，开启云端保存与同步。');
+        hideLoginPage();
         return;
     }
 
@@ -237,3 +293,5 @@ async function startApp() {
 }
 
 startApp();
+
+

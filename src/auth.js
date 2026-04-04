@@ -12,18 +12,16 @@ function hasAuthConfig() {
     );
 }
 
-function normalizePhone(phone) {
-    const raw = String(phone || '').trim().replace(/\s+/g, '').replace(/-/g, '');
+export function normalizeEmail(email) {
+    const raw = String(email || '').trim().toLowerCase();
     if (!raw) {
-        throw new Error('请输入手机号');
+        throw new Error('请输入邮箱');
     }
-    if (raw.startsWith('+')) {
-        return raw;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(raw)) {
+        throw new Error('请输入正确的邮箱地址');
     }
-    if (/^1\d{10}$/.test(raw)) {
-        return `+86${raw}`;
-    }
-    throw new Error('请输入正确的手机号');
+    return raw;
 }
 
 async function ensureUserRow(user) {
@@ -33,7 +31,7 @@ async function ensureUserRow(user) {
         id: user.id,
         openid: user.app_metadata?.provider === 'wechat' ? (user.user_metadata?.openid || null) : null,
         phone: user.phone || null,
-        nickname: user.user_metadata?.nickname || user.phone || '成绩雷达用户',
+        nickname: user.user_metadata?.nickname || user.email || '成绩雷达用户',
         avatar_url: user.user_metadata?.avatar_url || null
     };
 
@@ -98,52 +96,27 @@ export async function getCurrentUser() {
     return data.user || null;
 }
 
-export async function sendSmsCode(phone) {
+export async function sendMagicLink(email) {
     const client = getSupabaseClient();
     if (!client) {
         throw new Error('当前环境未启用登录');
     }
 
-    const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = normalizeEmail(email);
+    const redirectTo = window.location.origin + window.location.pathname;
     const { error } = await client.auth.signInWithOtp({
-        phone: normalizedPhone,
-        options: { channel: 'sms' }
+        email: normalizedEmail,
+        options: {
+            emailRedirectTo: redirectTo,
+            shouldCreateUser: true
+        }
     });
 
     if (error) {
         throw error;
     }
 
-    return { phone: normalizedPhone };
-}
-
-export async function signInWithPhone(phone, code) {
-    const client = getSupabaseClient();
-    if (!client) {
-        throw new Error('当前环境未启用登录');
-    }
-
-    const normalizedPhone = normalizePhone(phone);
-    const token = String(code || '').trim();
-    if (!/^\d{4,8}$/.test(token)) {
-        throw new Error('请输入正确的验证码');
-    }
-
-    const { data, error } = await client.auth.verifyOtp({
-        phone: normalizedPhone,
-        token,
-        type: 'sms'
-    });
-
-    if (error) {
-        throw error;
-    }
-
-    if (data.user) {
-        await ensureUserRow(data.user);
-    }
-
-    return data.user || null;
+    return { email: normalizedEmail };
 }
 
 export async function signOut() {
