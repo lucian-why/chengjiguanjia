@@ -5,7 +5,7 @@ import { showLoginPage, hideLoginPage, renderAuthStatus, clearAuthStatus, setLog
 import { showConfirmDialog, showToast } from './modal.js';
 import { setUpdateTrendChart, updateScoreMax } from './utils.js';
 import { renderExamList, selectExam, selectSubject, setDependencies as setExamListDeps } from './exam-list.js';
-import { renderExamDetail, openExamModal, openScoreModal, editSubjectScore, editExam, deleteExam, setupConfirmModalEvents, setupExamFormSubmit, setupScoreFormSubmit, setupModalCloseEvents, startEditTotalScore, onManualTotalScoreInput, prepareCancelInlineTotalScore, cancelInlineTotalScore, saveInlineTotalScore, handleManualTotalScoreBlur, handleManualTotalScoreKeydown, confirmRestoreAutoTotalScore, setDependencies as setExamDetailDeps } from './exam-detail.js';
+import { renderExamDetail, openExamModal, openScoreModal, editSubjectScore, deleteSubjectScore, editExam, deleteExam, setupConfirmModalEvents, setupExamFormSubmit, setupScoreFormSubmit, setupModalCloseEvents, startEditTotalScore, onManualTotalScoreInput, prepareCancelInlineTotalScore, cancelInlineTotalScore, saveInlineTotalScore, handleManualTotalScoreBlur, handleManualTotalScoreKeydown, confirmRestoreAutoTotalScore, setDependencies as setExamDetailDeps } from './exam-detail.js';
 import { addBatchSubject, setupBatchEvents, setDependencies as setBatchDeps } from './batch.js';
 import { renderProfileSwitcher, renderProfileManager, switchToProfile, renameProfile, confirmDeleteProfile, addNewProfile, setDependencies as setProfileDeps } from './profile.js';
 import { initRadarChart, toggleRadarCompare, updateRadarChart } from './chart-radar.js';
@@ -76,7 +76,7 @@ function toggleExamExclude(examId) {
 
 async function ensureCloudAuth() {
     if (!isAuthEnabled()) {
-        showToast({ icon: '⚙️', iconType: 'warning', title: '未启用云端登录', message: '当前部署环境没有注入 Supabase 登录变量，请检查 GitHub Actions Secrets 后重新部署。' });
+        showToast({ icon: '⚙️', iconType: 'warning', title: '未启用云端登录', message: '当前部署环境没有注入 腾讯云登录变量，请检查 VITE_TCB_ENV_ID 和前端配置后重新部署。' });
         return false;
     }
 
@@ -86,7 +86,7 @@ async function ensureCloudAuth() {
     }
 
     pendingPostLoginAction = 'cloud-sync';
-    showLoginPage('云端同步需要先登录，请发送邮箱魔法链接完成登录。');
+    showLoginPage('云端同步需要先登录，请输入邮箱和验证码完成登录。');
     return false;
 }
 
@@ -114,6 +114,7 @@ function bindWindowGlobals() {
     window.editExam = editExam;
     window.deleteExam = deleteExam;
     window.editSubjectScore = editSubjectScore;
+    window.deleteSubjectScore = deleteSubjectScore;
     window.startEditTotalScore = startEditTotalScore;
     window.onManualTotalScoreInput = onManualTotalScoreInput;
     window.prepareCancelInlineTotalScore = prepareCancelInlineTotalScore;
@@ -133,6 +134,13 @@ function bindWindowGlobals() {
     window.confirmDeleteProfile = confirmDeleteProfile;
     window.toggleRadarCompare = toggleRadarCompare;
     window.updateScoreMax = updateScoreMax;
+    window.adjustScoreFull = function(delta) {
+        const el = document.getElementById('scoreFull');
+        const current = parseInt(el.value) || 100;
+        const next = Math.max(1, current + delta);
+        el.value = next;
+        updateScoreMax();
+    };
     window.openChartZoom = openChartZoom;
     window.closeChartZoom = closeChartZoom;
     window.closeCloudSyncPanel = closeCloudSyncPanel;
@@ -293,6 +301,7 @@ async function startApp() {
 }
 
 startApp();
+
 
 
 

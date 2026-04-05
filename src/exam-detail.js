@@ -137,10 +137,13 @@ export async function renderExamDetail() {
                     if (subject.classRank) rankHtml += `<span class="rank-tag">班级第${subject.classRank}</span>`;
                     if (subject.gradeRank) rankHtml += `<span class="rank-tag">年级第${subject.gradeRank}</span>`;
                     return `
-                        <div class="subject-card" onclick="editSubjectScore(${index})">
-                            <div class="name">${subject.name}</div>
-                            <div class="score ${subject.score >= 90 ? 'good' : (subject.score >= 60 ? 'normal' : 'bad')}">${subject.score}</div>
-                            ${rankHtml ? `<div class="rank-info">${rankHtml}</div>` : ''}
+                        <div class="subject-card">
+                            <button class="subject-del-btn" onclick="event.stopPropagation(); deleteSubjectScore(${index})" title="删除该科目">×</button>
+                            <div class="subject-card-inner" onclick="editSubjectScore(${index})">
+                                <div class="name">${subject.name}</div>
+                                <div class="score ${subject.score >= 90 ? 'good' : (subject.score >= 60 ? 'normal' : 'bad')}">${subject.score}</div>
+                                ${rankHtml ? `<div class="rank-info">${rankHtml}</div>` : ''}
+                            </div>
                         </div>
                     `;
                 }).join('')}
@@ -341,6 +344,32 @@ export async function editSubjectScore(subjectIndex) {
     updateScoreMax();
     document.getElementById('scoreModalTitle').textContent = '编辑成绩';
     document.getElementById('scoreModal').classList.add('active');
+}
+
+export function deleteSubjectScore(subjectIndex) {
+    if (!state.currentExamId) return;
+
+    const exams = getExams(getActiveProfileId());
+    const exam = exams.find(item => item.id === state.currentExamId);
+    if (!exam) return;
+
+    const subjects = exam.subjects || [];
+    if (subjectIndex >= subjects.length) return;
+
+    const subjectName = subjects[subjectIndex].name;
+
+    document.getElementById('confirmModalTitle').textContent = '确定删除该科目？';
+    document.getElementById('confirmModalMessage').textContent = `「${subjectName}」的成绩将被删除，此操作不可撤销`;
+    state._confirmCallback = async () => {
+        const allExams = getExamsAll();
+        const targetExam = allExams.find(e => String(e.id) === String(state.currentExamId));
+        if (!targetExam) return;
+        targetExam.subjects.splice(subjectIndex, 1);
+        saveExams(allExams);
+        if (_refreshAll) await _refreshAll();
+        showToast({ icon: '🗑️', iconType: 'success', title: '已删除', message: `「${subjectName}」已移除` });
+    };
+    document.getElementById('confirmModal').classList.add('active');
 }
 
 export function closeScoreModal() {

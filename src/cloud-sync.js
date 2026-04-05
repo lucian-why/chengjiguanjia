@@ -1,25 +1,43 @@
-﻿import { getCurrentUser, getSupabaseClient, isAuthEnabled } from './auth.js';
+﻿import { getCurrentUser, isAuthEnabled } from './auth.js';
+import { callFunction } from './cloud-tcb.js';
 import { getAllLocalProfileBundles, getLocalProfileBundle, applyCloudProfileBundle } from './storage.js';
 
-const CLOUD_TABLE = 'cloud_profiles';
-
-function ensureCloudReady() {
+async function ensureCloudReady() {
     if (!isAuthEnabled()) {
-        throw new Error('当前环境未启用云端登录');
+        throw new Error('当前环境未启用腾讯云登录');
     }
 
-    const client = getSupabaseClient();
-    if (!client) {
-        throw new Error('云端服务尚未初始化');
+    const user = await getCurrentUser();
+    if (!user) {
+        throw new Error('请先登录后再使用云端同步');
     }
 
-    return client;
+    return user;
 }
 
-function formatSupabaseError(error, fallback) {
+function normalizeFunctionResult(result, fallback) {
+    const payload = result?.result ?? result;
+    if (!payload) {
+        throw new Error(fallback);
+    }
+
+    if (typeof payload.code === 'number' && payload.code !== 0) {
+        throw new Error(payload.message || fallback);
+    }
+
+    return payload.data ?? payload;
+}
+
+function formatTCBError(error, fallback) {
     const message = error?.message || fallback;
+    if (/function.*not found|resource not found|未找到函数|Cannot find module/i.test(message)) {
+        return '腾讯云同步云函数尚未部署，请先创建 listCloudProfiles、getCloudProfileData、uploadCloudProfile、deleteCloudProfiles。';
+    }
     if (/cloud_profiles/i.test(message)) {
-        return '云端同步表尚未创建，请先在 Supabase 中创建 cloud_profiles 表';
+        return '腾讯云 cloud_profiles 集合尚未创建，请先在云开发数据库中创建。';
+    }
+    if (/未登录|登录已过期|获取当前登录用户失败|PERMISSION_DENIED/i.test(message)) {
+        return '当前云端登录态无效，请重新登录后再试。';
     }
     return message;
 }
@@ -28,162 +46,88 @@ function estimateBundleSize(bundle) {
     return new TextEncoder().encode(JSON.stringify(bundle)).length;
 }
 
-function toCloudSummary(row) {
+function toCloudSummary(row = {}) {
     return {
-        id: row.id,
-        profileId: row.profile_id,
-        profileName: row.profile_name,
-        examCount: row.exam_count || 0,
-        dataSize: row.data_size || 0,
-        lastSyncAt: row.last_sync_at || row.updated_at || row.created_at,
-        bundle: row.profile_data
+        id: row.id || row._id || row.profile_id,
+        profileId: row.profileId || row.profile_id,
+        profileName: row.profileName || row.profile_name,
+        examCount: row.examCount || row.exam_count || 0,
+        dataSize: row.dataSize || row.data_size || 0,
+        lastSyncAt: row.lastSyncAt || row.last_sync_at || row.updated_at || row.created_at || null,
+        bundle: row.bundle || row.profileData || row.profile_data || null
     };
 }
 
+async function callSyncFunction(name, data, fallback) {
+    try {
+        const result = await callFunction(name, data);
+        return normalizeFunctionResult(result, fallback);
+    } catch (error) {
+        throw new Error(formatTCBError(error, fallback));
+    }
+}
+
 export async function getCloudProfiles() {
-    const client = ensureCloudReady();
-    const user = await getCurrentUser();
-    if (!user) {
-        throw new Error('请先登录后再使用云端同步');
-    }
-
-    const { data, error } = await client
-        .from(CLOUD_TABLE)
-        .select('id, profile_id, profile_name, exam_count, data_size, last_sync_at, updated_at, created_at, profile_data')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-    if (error) {
-        throw new Error(formatSupabaseError(error, '获取云端档案失败'));
-    }
-
-    return (data || []).map(toCloudSummary);
+    await ensureCloudReady();
+    const data = await callSyncFunction('listCloudProfiles', {}, '获取云端档案失败');
+    const rows = Array.isArray(data) ? data : (data?.profiles || data?.list || []);
+    return rows.map(toCloudSummary);
 }
 
 export async function getCloudProfileData(profileId) {
-    const client = ensureCloudReady();
-    const user = await getCurrentUser();
-    if (!user) {
-        throw new Error('请先登录后再使用云端同步');
-    }
-
-    const { data, error } = await client
-        .from(CLOUD_TABLE)
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('profile_id', profileId)
-        .limit(1)
-        .maybeSingle();
-
-    if (error) {
-        throw new Error(formatSupabaseError(error, '获取云端档案详情失败'));
-    }
-
-    return data ? toCloudSummary(data) : null;
-}
-
-async function upsertCloudProfileRow(userId, payload) {
-    const client = ensureCloudReady();
-    const existing = await getCloudProfileData(payload.profile_id);
-
-    if (existing?.id) {
-        const { error } = await client
-            .from(CLOUD_TABLE)
-            .update({
-                profile_name: payload.profile_name,
-                profile_data: payload.profile_data,
-                exam_count: payload.exam_count,
-                data_size: payload.data_size,
-                last_sync_at: payload.last_sync_at
-            })
-            .eq('id', existing.id)
-            .eq('user_id', userId);
-
-        if (error) {
-            throw new Error(formatSupabaseError(error, '更新云端档案失败'));
-        }
-
-        return existing.id;
-    }
-
-    const { data, error } = await client
-        .from(CLOUD_TABLE)
-        .insert({ ...payload, user_id: userId })
-        .select('id')
-        .single();
-
-    if (error) {
-        throw new Error(formatSupabaseError(error, '创建云端档案失败'));
-    }
-
-    return data.id;
+    await ensureCloudReady();
+    const data = await callSyncFunction('getCloudProfileData', { profileId }, '获取云端档案详情失败');
+    if (!data) return null;
+    return toCloudSummary(data);
 }
 
 export async function uploadProfile(profileId) {
-    const user = await getCurrentUser();
-    if (!user) {
-        throw new Error('请先登录后再使用云端同步');
-    }
-
+    const user = await ensureCloudReady();
     const localBundle = getLocalProfileBundle(profileId);
     if (!localBundle) {
         throw new Error('未找到要备份的本地档案');
     }
 
-    const syncTime = new Date().toISOString();
-    await upsertCloudProfileRow(user.id, {
-        profile_id: localBundle.profileId,
-        profile_name: localBundle.profileName,
-        profile_data: localBundle.bundle,
-        exam_count: localBundle.examCount,
-        data_size: estimateBundleSize(localBundle.bundle),
-        last_sync_at: syncTime
-    });
+    const payload = {
+        profileId: localBundle.profileId,
+        profileName: localBundle.profileName,
+        profileData: localBundle.bundle,
+        examCount: localBundle.examCount,
+        dataSize: estimateBundleSize(localBundle.bundle),
+        userEmail: user.email || ''
+    };
 
+    const data = await callSyncFunction('uploadCloudProfile', payload, '上传云端档案失败');
     return {
         profileId: localBundle.profileId,
         profileName: localBundle.profileName,
         examCount: localBundle.examCount,
-        lastSyncAt: syncTime
+        lastSyncAt: data?.lastSyncAt || data?.last_sync_at || new Date().toISOString()
     };
 }
 
 export async function downloadProfiles(profileIds = []) {
-    const cloudProfiles = await Promise.all(profileIds.map(profileId => getCloudProfileData(profileId)));
+    const cloudProfiles = await Promise.all(profileIds.map((profileId) => getCloudProfileData(profileId)));
     const validProfiles = cloudProfiles.filter(Boolean);
 
-    validProfiles.forEach(profile => {
-        applyCloudProfileBundle(profile.bundle || profile.profile_data || profile);
+    validProfiles.forEach((profile) => {
+        applyCloudProfileBundle(profile.bundle || profile.profileData || profile.profile_data || profile);
     });
 
     return validProfiles;
 }
 
 export async function deleteCloudProfiles(profileIds = []) {
-    const client = ensureCloudReady();
-    const user = await getCurrentUser();
-    if (!user) {
-        throw new Error('请先登录后再使用云端同步');
-    }
     if (!profileIds.length) return 0;
-
-    const { error, count } = await client
-        .from(CLOUD_TABLE)
-        .delete({ count: 'exact' })
-        .eq('user_id', user.id)
-        .in('profile_id', profileIds);
-
-    if (error) {
-        throw new Error(formatSupabaseError(error, '删除云端档案失败'));
-    }
-
-    return count || profileIds.length;
+    await ensureCloudReady();
+    const data = await callSyncFunction('deleteCloudProfiles', { profileIds }, '删除云端档案失败');
+    return data?.count || data?.deletedCount || profileIds.length;
 }
 
 export function compareProfiles(localProfiles = getAllLocalProfileBundles(), cloudProfiles = []) {
-    const cloudMap = new Map(cloudProfiles.map(item => [item.profileId, item]));
+    const cloudMap = new Map(cloudProfiles.map((item) => [item.profileId, item]));
 
-    return localProfiles.map(local => {
+    return localProfiles.map((local) => {
         const cloud = cloudMap.get(local.profileId);
         let status = 'local-only';
         if (cloud) {
@@ -204,7 +148,7 @@ export function compareProfiles(localProfiles = getAllLocalProfileBundles(), clo
 }
 
 export function getLocalProfileSummaries() {
-    return getAllLocalProfileBundles().map(bundle => ({
+    return getAllLocalProfileBundles().map((bundle) => ({
         profileId: bundle.profileId,
         profileName: bundle.profileName,
         examCount: bundle.examCount,

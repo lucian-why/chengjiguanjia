@@ -23,7 +23,7 @@
 
 直接用浏览器打开 `index.html` 即可使用，也可以通过以下链接在线访问：
 
-[成绩管家 GitHub Pages](https://lucian-why.github.io/chengjiguanjia/)
+[成绩雷达 GitHub Pages](https://lucian-why.github.io/chengjileida/)
 
 ## 许可证
 

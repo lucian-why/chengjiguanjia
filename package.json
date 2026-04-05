@@ -13,6 +13,7 @@
     "vite-plugin-singlefile": "^2.3.2"
   },
   "dependencies": {
+    "@cloudbase/js-sdk": "^2.27.2",
     "@supabase/supabase-js": "^2.101.1"
   }
 }

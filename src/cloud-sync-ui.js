@@ -211,7 +211,7 @@ async function renderCloudSyncContent() {
     overlay?.classList.add('active');
 
     if (!isAuthEnabled()) {
-        setStatus('当前环境未启用云端登录，请先配置 Supabase 环境变量。', 'error');
+        setStatus('当前环境未启用腾讯云登录，请先配置 TCB 环境变量。', 'error');
         renderLoginRequired();
         return;
     }
@@ -304,3 +304,4 @@ export async function openCloudSyncPanel() {
 export function closeCloudSyncPanel() {
     document.getElementById('cloudSyncOverlay')?.classList.remove('active');
 }
+

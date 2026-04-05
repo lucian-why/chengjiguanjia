@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-- **项目名称**：成绩管家
+- **项目名称**：成绩雷达
 - **仓库地址**：`git@github.com:lucian-why/chengjiguanjia.git`
 - **在线地址**：https://lucian-why.github.io/chengjiguanjia/
 - **部署方式**：GitHub Pages（推送至 `main` 分支自动部署）
@@ -24,7 +24,7 @@
 ## 文件结构
 
 ```
-E:\成绩管家\成绩管家_web\
+E:\成绩雷达\成绩雷达_web\
 ├── index.html              # 纯 HTML 模板（DOM 结构 + CDN 引用）
 ├── vite.config.js          # Vite 配置（singlefile 插件）
 ├── package.json            # 项目依赖

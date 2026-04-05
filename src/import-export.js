@@ -58,7 +58,7 @@ export function setupImportExport() {
         XLSX.utils.book_append_sheet(wb, ws, '成绩记录');
 
         // 下载Excel文件
-        XLSX.writeFile(wb, '成绩管家_' + new Date().toISOString().split('T')[0] + '.xlsx');
+        XLSX.writeFile(wb, '成绩雷达_' + new Date().toISOString().split('T')[0] + '.xlsx');
     });
 
     // ===== 数据导入 =====

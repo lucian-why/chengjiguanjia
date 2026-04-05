@@ -46,7 +46,7 @@ export async function renderExamList() {
                 </div>
                 <div class="exam-subjects">
                     ${subjects.map(subject => {
-                        const rankTag = subject.classRank ? ` 🏲${subject.classRank}` : '';
+                        const rankTag = subject.classRank ? ` · 班${subject.classRank}` : '';
                         return `
                             <div class="subject-item" data-role="select-exam" data-exam-id="${escHtml(exam.id)}">
                                 <span class="subject-name">📚 ${escHtml(subject.name)}</span>

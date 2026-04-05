@@ -128,7 +128,7 @@ function buildExamReportHTML(exam) {
         <div class="rep-header">
             <div class="rep-header-bg"></div>
             <div class="rep-header-content">
-                <div class="rep-brand">📊 成绩管家</div>
+                <div class="rep-brand">📊 成绩雷达</div>
                 <div class="rep-exam-name">${exam.name}</div>
                 ${profileName ? `<div class="rep-profile-name">${profileName}</div>` : ''}
             </div>
@@ -156,7 +156,7 @@ function buildExamReportHTML(exam) {
             <div class="rep-subjects">${subjectRows}</div>
             ${exam.startDate ? `<div class="rep-date">📅 ${exam.startDate}${exam.endDate && exam.endDate !== exam.startDate ? ' ~ ' + exam.endDate : ''}</div>` : ''}
         </div>
-        <div class="rep-footer">由「成绩管家」生成 · 记录每一步进步</div>
+        <div class="rep-footer">由「成绩雷达」生成 · 记录每一步进步</div>
     </div>
     <style>
         .rep-card { width: 360px; background: #fff; border-radius: 16px; overflow: hidden; font-family: 'Noto Sans SC', -apple-system, sans-serif; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }

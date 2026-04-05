@@ -973,6 +973,32 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     border: 2px solid transparent;
+    position: relative;
+}
+
+.subject-card .subject-del-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 2px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    z-index: 2;
+}
+
+.subject-card .subject-del-btn:hover {
+    color: #e88a8a;
+    background: rgba(232, 138, 138, 0.12);
+}
+
+.subject-card-inner {
+    pointer-events: auto;
 }
 
 .subject-card:hover {
@@ -1081,6 +1107,63 @@ body {
 .form-group textarea:focus {
     outline: none;
     border-color: var(--accent-warm);
+}
+
+/* 隐藏原生 number 箭头 */
+#scoreFull::-webkit-outer-spin-button,
+#scoreFull::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#scoreFull[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* 自定义满分 ±10 按钮组 */
+.score-full-wrap {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
+}
+
+.score-full-wrap #scoreFull {
+    flex: 1;
+    min-width: 0;
+}
+
+.score-full-stepper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.score-full-step-btn {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 30px;
+    height: 22px;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    padding: 0;
+    line-height: 1;
+    user-select: none;
+}
+
+.score-full-step-btn:hover {
+    background: var(--accent-warm);
+    color: #fff;
+    border-color: var(--accent-warm);
+}
+
+.score-full-step-btn:active {
+    transform: scale(0.92);
 }
 
 .form-row {
