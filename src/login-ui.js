@@ -153,7 +153,7 @@ function ensureLoginUi() {
         authBar.className = 'auth-status-bar hidden';
         authBar.innerHTML = `
             <div class="auth-status-main">
-                <span class="auth-status-label">云端账户</span>
+                <span class="auth-status-label" id="authStatusLabel">云端账户</span>
                 <span class="auth-status-value" id="authStatusValue">未登录</span>
             </div>
             <button type="button" id="authLoginBtn" class="auth-login-btn hidden">登录</button>
@@ -668,11 +668,18 @@ function showTransientToast(text, duration = 2500) {
 export function renderAuthStatus(user) {
     ensureLoginUi();
     const authBar = document.getElementById('authStatusBar');
+    const label = document.getElementById('authStatusLabel');
     const value = document.getElementById('authStatusValue');
     const loginBtn = document.getElementById('authLoginBtn');
     const logoutBtn = document.getElementById('authLogoutBtn');
 
     const displayText = user?.nickname || user?.email || user?.phone || '已登录';
+    authBar?.classList.remove('guest');
+    authBar?.classList.add('logged-in');
+    if (label) {
+        label.textContent = '点击修改昵称';
+        label.classList.remove('hidden');
+    }
     if (value) {
         value.textContent = displayText;
         value.style.cursor = 'pointer';
@@ -687,14 +694,21 @@ export function renderAuthStatus(user) {
 export function renderGuestAuthStatus() {
     ensureLoginUi();
     const authBar = document.getElementById('authStatusBar');
+    const label = document.getElementById('authStatusLabel');
     const value = document.getElementById('authStatusValue');
     const loginBtn = document.getElementById('authLoginBtn');
     const logoutBtn = document.getElementById('authLogoutBtn');
 
+    authBar?.classList.remove('logged-in');
+    authBar?.classList.add('guest');
+    if (label) {
+        label.textContent = '';
+        label.classList.add('hidden');
+    }
     if (value) {
         value.textContent = '未登录';
         value.style.cursor = 'default';
-        value.title = '登录后可使用云端同步';
+        value.title = '';
         value.onclick = null;
     }
     loginBtn?.classList.remove('hidden');
@@ -772,10 +786,16 @@ function openNicknameEditor(user, currentNickname) {
 
 export function clearAuthStatus() {
     const authBar = document.getElementById('authStatusBar');
+    const label = document.getElementById('authStatusLabel');
     const value = document.getElementById('authStatusValue');
     const loginBtn = document.getElementById('authLoginBtn');
     const logoutBtn = document.getElementById('authLogoutBtn');
 
+    authBar?.classList.remove('guest', 'logged-in');
+    if (label) {
+        label.textContent = '';
+        label.classList.add('hidden');
+    }
     if (value) {
         value.onclick = null;
         value.title = '';

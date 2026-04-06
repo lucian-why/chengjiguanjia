@@ -2214,7 +2214,7 @@ body.auth-locked {
 
 .auth-status-bar {
     margin-top: 14px;
-    padding-top: 12px;
+    padding-top: 14px;
     border-top: 1px solid var(--border-color);
     display: flex;
     align-items: center;
@@ -2229,20 +2229,42 @@ body.auth-locked {
 .auth-status-main {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 }
 
 .auth-status-label {
-    color: var(--text-secondary);
-    font-size: 0.72rem;
+    color: #8f887f;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+}
+
+.auth-status-label.hidden {
+    display: none;
 }
 
 .auth-status-value {
     color: var(--text-primary);
-    font-size: 0.86rem;
-    font-weight: 500;
-    word-break: break-all;
+    font-weight: 600;
+    line-height: 1.15;
+    word-break: break-word;
+}
+
+.auth-status-bar.guest {
+    padding-top: 10px;
+    align-items: center;
+}
+
+.auth-status-bar.guest .auth-status-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #7f776f;
+}
+
+.auth-status-bar.logged-in .auth-status-value {
+    font-size: 1rem;
+    font-weight: 700;
 }
 
 .auth-login-btn,
@@ -2250,15 +2272,18 @@ body.auth-locked {
     padding: 8px 14px;
     border: 1px solid var(--border-color);
     font-size: 0.84rem;
+    border-radius: 12px;
+    transition: transform 0.18s, box-shadow 0.18s, opacity 0.18s, border-color 0.18s, color 0.18s;
 }
 
 .auth-login-btn {
     background: linear-gradient(135deg, #7ca9c9 0%, #8fb7a3 100%);
     color: #fff;
+    box-shadow: 0 10px 20px rgba(124, 169, 201, 0.18);
 }
 
 .auth-logout-btn {
-    background: var(--bg-primary);
+    background: rgba(250, 248, 245, 0.92);
     color: var(--text-secondary);
 }
 
@@ -2268,11 +2293,13 @@ body.auth-locked {
 }
 
 .auth-login-btn:hover {
+    transform: translateY(-1px);
     opacity: 0.92;
     box-shadow: 0 8px 18px rgba(124, 169, 201, 0.18);
 }
 
 .auth-logout-btn:hover {
+    transform: translateY(-1px);
     border-color: var(--text-primary);
     color: var(--text-primary);
 }
