@@ -6,7 +6,7 @@ import { showConfirmDialog, showToast } from './modal.js';
 import { setUpdateTrendChart, updateScoreMax } from './utils.js';
 import { renderExamList, selectExam, selectSubject, setDependencies as setExamListDeps } from './exam-list.js';
 import { renderExamDetail, openExamModal, openScoreModal, editSubjectScore, deleteSubjectScore, editExam, deleteExam, setupConfirmModalEvents, setupExamFormSubmit, setupScoreFormSubmit, setupModalCloseEvents, startEditTotalScore, onManualTotalScoreInput, prepareCancelInlineTotalScore, cancelInlineTotalScore, saveInlineTotalScore, handleManualTotalScoreBlur, handleManualTotalScoreKeydown, confirmRestoreAutoTotalScore, setDependencies as setExamDetailDeps } from './exam-detail.js';
-import { addBatchSubject, setupBatchEvents, setDependencies as setBatchDeps } from './batch.js';
+import { openBatchModal, addBatchSubject, setupBatchEvents, setDependencies as setBatchDeps } from './batch.js';
 import { renderProfileSwitcher, renderProfileManager, switchToProfile, renameProfile, confirmDeleteProfile, addNewProfile, setDependencies as setProfileDeps } from './profile.js';
 import { initRadarChart, toggleRadarCompare, updateRadarChart } from './chart-radar.js';
 import { initCharts, updateTrendChart, updateChartTabs, setDependencies as setChartTrendDeps } from './chart-trend.js';
@@ -124,6 +124,7 @@ function bindWindowGlobals() {
     window.handleManualTotalScoreKeydown = handleManualTotalScoreKeydown;
     window.confirmRestoreAutoTotalScore = confirmRestoreAutoTotalScore;
     window.openScoreModal = openScoreModal;
+    window.openBatchModal = openBatchModal;
     window.addBatchSubject = addBatchSubject;
     window.openShareExamReport = openShareExamReport;
     window.openShareProfileReport = openShareProfileReport;

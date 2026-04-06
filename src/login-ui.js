@@ -19,7 +19,7 @@
  */
 
 import {
-    sendEmailCode, sendSmsCode, emailCodeLogin, smsLogin, passwordLogin,
+    sendEmailCode, sendSmsCode, emailCodeLogin, smsLogin, passwordLogin, resetPassword,
     phonePasswordLogin, phoneRegisterFn, phoneResetPasswordFn, updateUserNickname
 } from './auth.js';
 
@@ -69,6 +69,7 @@ function ensureLoginUi() {
                 <p class="login-subtitle">登录后可启用云端备份与多端同步</p>
 
                 <div class="login-form">
+                    <div id="loginMainPanel">
                     <!-- 统一账号输入框 -->
                     <label class="login-label" id="loginAccountLabel" for="loginAccountInput">邮箱 / 手机号</label>
                     <input id="loginAccountInput" class="login-input" type="text"
@@ -77,8 +78,11 @@ function ensureLoginUi() {
                     <!-- 密码区域（默认展示） -->
                     <div id="passwordModeSection">
                         <label class="login-label" for="loginPwdInput">密码</label>
-                        <input id="loginPwdInput" class="login-input" type="password"
-                               placeholder="请输入登录密码" maxlength="64" autocomplete="current-password" />
+                        <div class="password-input-wrap">
+                            <input id="loginPwdInput" class="login-input password-input" type="password"
+                                   placeholder="请输入登录密码" maxlength="64" autocomplete="current-password" />
+                            <button type="button" class="password-toggle-btn" data-target="loginPwdInput" aria-label="显示密码">👁</button>
+                        </div>
                     </div>
 
                     <!-- 验证码区域（注册时展示 / 验证码登录模式展示） -->
@@ -90,14 +94,6 @@ function ensureLoginUi() {
                             <button id="sendCodeBtn" class="login-secondary-btn" type="button">发送验证码</button>
                         </div>
 
-                        <!-- 确认密码（仅注册模式显示） -->
-                        <div id="registerConfirmPwdSection" style="display:none; margin-top:8px;">
-                            <label class="login-label" for="loginConfirmPwdInput">
-                                确认密码 <span style="font-weight:400;font-size:0.8em;color:#9ca3af;">(必填)</span>
-                            </label>
-                            <input id="loginConfirmPwdInput" class="login-input" type="password"
-                                   placeholder="再次输入密码" maxlength="64" autocomplete="new-password" />
-                        </div>
                     </div>
 
                     <!-- 模式切换提示 -->
@@ -114,13 +110,14 @@ function ensureLoginUi() {
                         <a href="javascript:void(0)" id="forgotPwdLink" class="login-link">忘记密码？</a>
                         <a href="javascript:void(0)" id="backToLoginFromRegister" class="login-link" style="display:none;">← 返回登录</a>
                     </div>
+                    </div>
 
                     <!-- 找回密码面板（默认隐藏） -->
                     <div id="resetPwdPanel" style="display:none;">
-                        <div style="border-top:1px solid #e8e4de; padding-top:16px; margin-top:12px;">
+                        <div class="reset-panel-shell">
                             <div style="font-weight:600; font-size:0.95rem; margin-bottom:12px;">找回密码</div>
-                            <label class="login-label" for="resetPwdPhone">手机号</label>
-                            <input id="resetPwdPhone" class="login-input" type="tel" placeholder="请输入注册手机号" maxlength="11" />
+                            <label class="login-label" for="resetPwdAccount">邮箱 / 手机号</label>
+                            <input id="resetPwdAccount" class="login-input" type="text" placeholder="请输入注册邮箱或手机号" maxlength="100" autocomplete="username" />
 
                             <label class="login-label" for="resetPwdCode" style="margin-top:8px;">验证码</label>
                             <div class="login-inline-row">
@@ -129,10 +126,16 @@ function ensureLoginUi() {
                             </div>
 
                             <label class="login-label" for="resetNewPwd" style="margin-top:8px;">新密码</label>
-                            <input id="resetNewPwd" class="login-input" type="password" placeholder="至少6位" maxlength="64" />
+                            <div class="password-input-wrap">
+                                <input id="resetNewPwd" class="login-input password-input" type="password" placeholder="至少6位" maxlength="64" />
+                                <button type="button" class="password-toggle-btn" data-target="resetNewPwd" aria-label="显示密码">👁</button>
+                            </div>
 
                             <label class="login-label" for="resetConfirmPwd" style="margin-top:8px;">确认新密码</label>
-                            <input id="resetConfirmPwd" class="login-input" type="password" placeholder="再次输入" maxlength="64" />
+                            <div class="password-input-wrap">
+                                <input id="resetConfirmPwd" class="login-input password-input" type="password" placeholder="再次输入" maxlength="64" />
+                                <button type="button" class="password-toggle-btn" data-target="resetConfirmPwd" aria-label="显示密码">👁</button>
+                            </div>
 
                             <button id="resetSubmitBtn" class="login-primary-btn" type="button" style="margin-top:12px;">确认重置</button>
                             <a href="javascript:void(0)" id="backToLoginLink" class="login-link" style="display:inline-block; margin-top:8px;">← 返回登录</a>
@@ -186,35 +189,30 @@ function switchLoginMode(mode, subMode) {
 
     const pwdSection = document.getElementById('passwordModeSection');
     const codeSection = document.getElementById('codeModeSection');
-    const regConfirmPwd = document.getElementById('registerConfirmPwdSection');
+    const mainPanel = document.getElementById('loginMainPanel');
     const switchHint = document.getElementById('modeSwitchHint');
     const submitText = document.getElementById('submitBtnText');
     const smsLink = document.getElementById('smsLoginLink');
     const forgotLink = document.getElementById('forgotPwdLink');
     const resetPanel = document.getElementById('resetPwdPanel');
+    const registerLink = document.getElementById('registerLink');
 
     // 先隐藏找回密码面板
     if (resetPanel) resetPanel.style.display = 'none';
+    if (mainPanel) mainPanel.style.display = '';
 
     if (subMode === 'resetpwd') {
-        // 找回密码模式
+        // 找回密码模式：隐藏主登录表单，只显示独立找回页
+        if (mainPanel) mainPanel.style.display = 'none';
         if (resetPanel) resetPanel.style.display = '';
-        submitText.textContent = '';
         setStatus('');
         return;
     }
 
-    // 显示主表单区域（如果被找回密码面板隐藏了）
-    const mainForm = document.querySelector('.login-form > div[id]');
-    if (mainForm && mainForm.closest('#resetPwdPanel') === null) {
-        mainForm.parentElement.style.display = '';
-    }
-
     if (subMode === 'register') {
-        // 注册模式：显示验证码 + 确认密码
-        pwdSection.style.display = 'none';
+        // 注册模式：显示验证码 + 单次密码输入
+        pwdSection.style.display = '';
         codeSection.style.display = '';
-        regConfirmPwd.style.display = '';
         switchHint.style.display = 'none';
         submitText.textContent = '注 册';
         smsLink.style.display = 'none';
@@ -227,7 +225,6 @@ function switchLoginMode(mode, subMode) {
         // 验证码登录模式
         pwdSection.style.display = 'none';
         codeSection.style.display = '';
-        regConfirmPwd.style.display = 'none';
         switchHint.style.display = 'none';
         submitText.textContent = '验证码登录';
         smsLink.textContent = '🔑 密码登录';
@@ -241,7 +238,6 @@ function switchLoginMode(mode, subMode) {
         // 默认密码登录模式
         pwdSection.style.display = '';
         codeSection.style.display = 'none';
-        regConfirmPwd.style.display = 'none';
         switchHint.style.display = 'none';
         submitText.textContent = '登录 / 注册';
         smsLink.textContent = '📨 验证码登录';
@@ -330,22 +326,9 @@ async function handleLogin() {
         // 处理 NOT_REGISTERED 特殊错误 → 自动切到注册模式
         if (error.code === 'NOT_REGISTERED' || error.registered === false) {
             switchLoginMode('code', 'register');
-            const codeInput = document.getElementById('loginCodeInput');
-            if (codeInput) codeInput.focus();
-            // 自动发送验证码
-            try {
-                setStatus('正在发送验证码…', 'pending');
-                if (inputType === 'phone') {
-                    await sendSmsCode(account);
-                    setStatus('✅ 验证码已发送，请查收短信后输入密码完成注册', 'success');
-                } else {
-                    await sendEmailCode(account);
-                    setStatus('✅ 验证码已发送，请查收邮箱后输入密码完成注册', 'success');
-                }
-                startCountdown(document.getElementById('sendCodeBtn'));
-            } catch (sendErr) {
-                setStatus(sendErr.message || '验证码发送失败，请手动点击发送', 'error');
-            }
+            const pwdInput = document.getElementById('loginPwdInput');
+            if (pwdInput) pwdInput.focus();
+            setStatus('该账号尚未注册，请点击发送验证码后完成注册。', 'info');
             return;
         }
 
@@ -407,9 +390,7 @@ async function handleCodeLogin(account, inputType) {
 
 async function handleRegister(account, inputType) {
     const code = (document.getElementById('loginCodeInput')?.value || '').trim();
-    // 注册时密码从 passwordModeSection 取（因为注册模式下密码区被隐藏了但值还在）
     const pwd = (document.getElementById('loginPwdInput')?.value || '').trim();
-    const confirmPwd = (document.getElementById('loginConfirmPwdInput')?.value || '').trim();
 
     if (!code || !/^\d{6}$/.test(code)) {
         setStatus('请输入6位验证码', 'error');
@@ -417,10 +398,6 @@ async function handleRegister(account, inputType) {
     }
     if (!pwd || pwd.length < 6) {
         setStatus('请设置至少6位的密码', 'error');
-        return;
-    }
-    if (pwd !== confirmPwd) {
-        setStatus('两次输入的密码不一致', 'error');
         return;
     }
 
@@ -440,13 +417,14 @@ async function handleRegister(account, inputType) {
 
 /** 找回密码处理 */
 async function handleResetPassword() {
-    const phone = (document.getElementById('resetPwdPhone')?.value || '').trim();
+    const account = (document.getElementById('resetPwdAccount')?.value || '').trim();
+    const inputType = detectInputType(account);
     const code = (document.getElementById('resetPwdCode')?.value || '').trim();
     const newPwd = (document.getElementById('resetNewPwd')?.value || '').trim();
     const confirmPwd = (document.getElementById('resetConfirmPwd')?.value || '').trim();
 
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-        setStatus('请输入正确的手机号', 'error'); return;
+    if (inputType === 'unknown') {
+        setStatus('请输入正确的邮箱地址或手机号', 'error'); return;
     }
     if (!/^\d{6}$/.test(code)) {
         setStatus('请输入6位验证码', 'error'); return;
@@ -460,7 +438,11 @@ async function handleResetPassword() {
 
     try {
         setStatus('正在重置…', 'pending');
-        const result = await phoneResetPasswordFn(phone, code, newPwd);
+        if (inputType === 'phone') {
+            await phoneResetPasswordFn(account, code, newPwd);
+        } else {
+            await resetPassword(account, code, newPwd);
+        }
         setStatus('✅ 密码重置成功', 'success');
         setTimeout(() => {
             switchLoginMode('password', 'login');
@@ -527,6 +509,19 @@ function bindUiEvents() {
     // 关闭
     closeBtn?.addEventListener('click', dismiss);
 
+    document.querySelectorAll('.password-toggle-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            const targetId = button.dataset.target;
+            const input = targetId ? document.getElementById(targetId) : null;
+            if (!input) return;
+
+            const showing = input.type === 'text';
+            input.type = showing ? 'password' : 'text';
+            button.textContent = showing ? '👁' : '🙈';
+            button.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码');
+        });
+    });
+
     // 📨 验证码登录 / 🔑 密码登录 切换
     smsLink?.addEventListener('click', () => {
         if (loginSubMode === 'sms_login') {
@@ -543,7 +538,7 @@ function bindUiEvents() {
         switchLoginMode('password', 'resetpwd');
     });
 
-    // 📝 注册账号 → 切换到注册模式（保留已输入的账号，自动发验证码）
+    // 📝 注册账号 → 切换到注册模式，不再自动发送验证码
     registerLink?.addEventListener('click', async () => {
         const accountInput = document.getElementById('loginAccountInput');
         const account = accountInput?.value || '';
@@ -553,22 +548,12 @@ function bindUiEvents() {
         switchLoginMode('code', 'register');
 
         if (type === 'unknown') {
-            // 没有有效账号，聚焦到输入框让用户填
             setStatus('请输入手机号或邮箱以开始注册', 'info');
             accountInput?.focus();
             return;
         }
 
-        // 有账号，直接发验证码
-        setStatus('正在发送验证码…', 'pending');
-        try {
-            if (type === 'phone') await sendSmsCode(account);
-            else await sendEmailCode(account);
-            setStatus(`✅ 验证码已发送到${type === 'phone' ? '手机' : '邮箱'}，请输入验证码和密码完成注册`, 'success');
-            startCountdown(document.getElementById('sendCodeBtn'));
-        } catch (err) {
-            setStatus(err.message || '发送失败，请手动点击发送验证码', 'error');
-        }
+        setStatus(`已切换到注册模式，请点击发送验证码并设置密码完成注册。`, 'info');
     });
 
     // ← 返回登录（找回密码面板）
@@ -584,11 +569,30 @@ function bindUiEvents() {
 
     // 找回密码面板：发送验证码
     resetSendCodeBtn?.addEventListener('click', () => {
-        const phone = document.getElementById('resetPwdPhone')?.value || '';
-        if (!/^1[3-9]\d{9}$/.test(phone.trim())) {
-            setStatus('请输入正确的手机号', 'error'); return;
+        const account = (document.getElementById('resetPwdAccount')?.value || '').trim();
+        const inputType = detectInputType(account);
+        if (inputType === 'unknown') {
+            setStatus('请输入正确的邮箱地址或手机号', 'error'); return;
         }
-        handleSendCode(resetSendCodeBtn);
+        (async () => {
+            try {
+                setStatus('正在发送验证码…', 'pending');
+                resetSendCodeBtn.disabled = true;
+                resetSendCodeBtn.textContent = '发送中…';
+                if (inputType === 'phone') {
+                    await sendSmsCode(account);
+                    setStatus('验证码已发送到手机，请注意查收短信。', 'success');
+                } else {
+                    await sendEmailCode(account);
+                    setStatus('验证码已发送，请查收邮箱后输入 6 位验证码。', 'success');
+                }
+                startCountdown(resetSendCodeBtn);
+            } catch (error) {
+                setStatus(error.message || '发送失败，请稍后重试。', 'error');
+                resetSendCodeBtn.disabled = false;
+                resetSendCodeBtn.textContent = '发送验证码';
+            }
+        })();
     });
 
     // 找回密码面板：提交重置
