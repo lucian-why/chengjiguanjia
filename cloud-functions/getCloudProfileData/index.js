@@ -4,7 +4,34 @@ const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 const auth = app.auth();
 
-async function getCurrentUser() {
+function parseEventPayload(event = {}) {
+  if (!event || typeof event !== 'object') return {};
+  if (event.queryStringParameters && typeof event.queryStringParameters === 'object') {
+    return event.queryStringParameters;
+  }
+  if (event.queryString && typeof event.queryString === 'object') {
+    return event.queryString;
+  }
+  if (typeof event.body === 'string' && event.body) {
+    try {
+      return JSON.parse(event.body);
+    } catch {
+      return Object.fromEntries(new URLSearchParams(event.body));
+    }
+  }
+  if (event.body && typeof event.body === 'object') {
+    return event.body;
+  }
+  return event;
+}
+
+async function getCurrentUser(event = {}) {
+  const payload = parseEventPayload(event);
+  const explicitUid = String(payload.userId || payload.uid || '').trim();
+  if (explicitUid) {
+    return { code: 0, uid: explicitUid, userInfo: { uid: explicitUid } };
+  }
+
   const userInfo = await auth.getUserInfo();
   const uid = userInfo?.uid || userInfo?.openId || userInfo?.customUserId || '';
   if (!uid) {
@@ -13,15 +40,16 @@ async function getCurrentUser() {
   return { code: 0, uid, userInfo };
 }
 
-exports.main = async (event) => {
-  const { profileId } = event;
+exports.main = async (event = {}) => {
+  const payload = parseEventPayload(event);
+  const { profileId } = payload;
 
   if (!profileId || typeof profileId !== 'string') {
     return { code: 400, message: '缺少 profileId' };
   }
 
   try {
-    const current = await getCurrentUser();
+    const current = await getCurrentUser(payload);
     if (current.code !== 0) {
       return current;
     }

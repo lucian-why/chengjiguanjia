@@ -3,13 +3,27 @@ const cloud = require('@cloudbase/node-sdk');
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 
+function parseEventPayload(event) {
+  if (!event) return {};
+  if (typeof event === 'string') {
+    try { return JSON.parse(event); } catch { return {}; }
+  }
+  if (event.body) {
+    if (typeof event.body === 'string') {
+      try { return JSON.parse(event.body); } catch { return {}; }
+    }
+    if (typeof event.body === 'object') return event.body;
+  }
+  return event;
+}
+
 /**
  * 更新用户昵称
  *
  * 请求：{ userId, nickname }
  */
 exports.main = async (event, context) => {
-  let { userId, nickname } = event;
+  let { userId, nickname } = parseEventPayload(event);
 
   if (!userId || !nickname) {
     return { code: 400, message: '参数不完整' };

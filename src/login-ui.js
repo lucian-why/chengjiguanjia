@@ -19,8 +19,8 @@
  */
 
 import {
-    sendEmailCode, sendSmsCode, emailCodeLogin, smsLogin, passwordLogin, resetPassword,
-    phonePasswordLogin, phoneRegisterFn, phoneResetPasswordFn, updateUserNickname
+    sendEmailCode, sendSmsCode, emailLogin, emailCodeLogin, smsLogin, passwordLogin, resetPassword,
+    phonePasswordLogin, phoneRegisterFn, phoneResetPasswordFn, updateUserNickname, verifyPhoneOtp
 } from './auth.js';
 import { isAdminUser } from './auth.js';
 
@@ -37,8 +37,22 @@ let loginSubMode = 'login';
 /**
  * 智能识别输入类型：email | phone | unknown
  */
+function normalizeAccountInput(value) {
+    const raw = String(value || '')
+        .replace(/\u3000/g, ' ')
+        .trim();
+
+    const normalized = raw
+        .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 65248))
+        .replace(/＠/g, '@')
+        .replace(/[。．｡]/g, '.')
+        .replace(/[‐‑‒–—―－]/g, '-');
+
+    return normalized.replace(/\s+/g, '');
+}
+
 function detectInputType(value) {
-    const trimmed = (value || '').trim();
+    const trimmed = normalizeAccountInput(value);
     if (trimmed.toLowerCase() === 'admin') return 'admin';
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'email';
     if (/^1[3-9]\d{9}$/.test(trimmed)) return 'phone';
@@ -183,6 +197,20 @@ function setStatus(message = '', type = '') {
     status.dataset.type = type;
 }
 
+function switchToRegisterWithAccount(account, inputType) {
+    switchLoginMode('code', 'register');
+    const accountInput = document.getElementById('loginAccountInput');
+    const accountLabel = document.getElementById('loginAccountLabel');
+    const pwdInput = document.getElementById('loginPwdInput');
+
+    if (accountInput) accountInput.value = account;
+    if (accountLabel) accountLabel.textContent = getAccountLabel(account);
+    pwdInput?.focus();
+
+    const targetName = inputType === 'phone' ? '手机号' : '邮箱';
+    setStatus(`该${targetName}尚未注册，已为你切换到注册页面。请发送验证码后完成注册。`, 'info');
+}
+
 /**
  * 切换登录模式（支持四种子状态）
  */
@@ -260,7 +288,7 @@ function switchLoginMode(mode, subMode) {
 
 async function handleSendCode(targetBtn) {
     const btn = targetBtn || document.getElementById('sendCodeBtn');
-    const account = document.getElementById('loginAccountInput')?.value || '';
+    const account = normalizeAccountInput(document.getElementById('loginAccountInput')?.value || '');
     const inputType = detectInputType(account);
 
     if (inputType === 'admin') {
@@ -311,7 +339,7 @@ function startCountdown(btn) {
 }
 
 async function handleLogin() {
-    const account = (document.getElementById('loginAccountInput')?.value || '').trim();
+    const account = normalizeAccountInput(document.getElementById('loginAccountInput')?.value || '');
     const inputType = detectInputType(account);
 
     if (inputType === 'unknown') {
@@ -333,10 +361,7 @@ async function handleLogin() {
     } catch (error) {
         // 处理 NOT_REGISTERED 特殊错误 → 自动切到注册模式
         if (error.code === 'NOT_REGISTERED' || error.registered === false) {
-            switchLoginMode('code', 'register');
-            const pwdInput = document.getElementById('loginPwdInput');
-            if (pwdInput) pwdInput.focus();
-            setStatus('该账号尚未注册，请点击发送验证码后完成注册。', 'info');
+            switchToRegisterWithAccount(account, inputType);
             return;
         }
 
@@ -394,7 +419,7 @@ async function handleCodeLogin(account, inputType) {
     if (inputType === 'phone') {
         result = await smsLogin(account, code);
     } else {
-        result = await emailCodeLogin(account, code);
+        result = await emailLogin(account, code);
     }
 
     setStatus('✅ 登录成功，正在进入…', 'success');
@@ -422,7 +447,8 @@ async function handleRegister(account, inputType) {
     setStatus('正在注册…', 'pending');
 
     if (inputType === 'phone') {
-        const result = await phoneRegisterFn(account, code, pwd);
+        await verifyPhoneOtp(account, code);
+        const result = await phoneRegisterFn(account, '', pwd, { verified: true });
         setStatus('✅ 注册成功，正在进入…', 'success');
         if (onLoginSuccess) await onLoginSuccess(result?.user || null);
     } else {
@@ -435,7 +461,7 @@ async function handleRegister(account, inputType) {
 
 /** 找回密码处理 */
 async function handleResetPassword() {
-    const account = (document.getElementById('resetPwdAccount')?.value || '').trim();
+    const account = normalizeAccountInput(document.getElementById('resetPwdAccount')?.value || '');
     const inputType = detectInputType(account);
     const code = (document.getElementById('resetPwdCode')?.value || '').trim();
     const newPwd = (document.getElementById('resetNewPwd')?.value || '').trim();
@@ -457,7 +483,8 @@ async function handleResetPassword() {
     try {
         setStatus('正在重置…', 'pending');
         if (inputType === 'phone') {
-            await phoneResetPasswordFn(account, code, newPwd);
+            await verifyPhoneOtp(account, code);
+            await phoneResetPasswordFn(account, '', newPwd, { verified: true });
         } else {
             await resetPassword(account, code, newPwd);
         }
@@ -559,7 +586,7 @@ function bindUiEvents() {
     // 📝 注册账号 → 切换到注册模式，不再自动发送验证码
     registerLink?.addEventListener('click', async () => {
         const accountInput = document.getElementById('loginAccountInput');
-        const account = accountInput?.value || '';
+        const account = normalizeAccountInput(accountInput?.value || '');
         const type = detectInputType(account);
 
         // 先切到注册模式
@@ -587,7 +614,7 @@ function bindUiEvents() {
 
     // 找回密码面板：发送验证码
     resetSendCodeBtn?.addEventListener('click', () => {
-        const account = (document.getElementById('resetPwdAccount')?.value || '').trim();
+        const account = normalizeAccountInput(document.getElementById('resetPwdAccount')?.value || '');
         const inputType = detectInputType(account);
         if (inputType === 'unknown') {
             setStatus('请输入正确的邮箱地址或手机号', 'error'); return;

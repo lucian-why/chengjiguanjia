@@ -6,6 +6,32 @@ const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 const _ = db.command;
 
+function parseEventPayload(event) {
+  if (!event) return {};
+  if (typeof event === 'string') {
+    try { return JSON.parse(event); } catch { return {}; }
+  }
+  if (event.queryStringParameters && typeof event.queryStringParameters === 'object') {
+    return event.queryStringParameters;
+  }
+  if (event.queryString && typeof event.queryString === 'object') {
+    return event.queryString;
+  }
+  if (event.body) {
+    let body = event.body;
+    if (event.isBase64Encoded && typeof body === 'string') {
+      try { body = Buffer.from(body, 'base64').toString('utf8'); } catch {}
+    }
+    if (typeof event.body === 'string') {
+      try { return JSON.parse(body); } catch {}
+      try { return Object.fromEntries(new URLSearchParams(body)); } catch {}
+      return {};
+    }
+    if (typeof event.body === 'object') return event.body;
+  }
+  return event;
+}
+
 
 // ===== 工具函数 =====
 
@@ -63,7 +89,7 @@ function buildUserResponse(user) {
  * 请求：{ email, code, newPassword }
  */
 exports.main = async (event, context) => {
-  let { email, code, newPassword } = event;
+  let { email, code, newPassword } = parseEventPayload(event);
 
   // 1. 参数校验
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

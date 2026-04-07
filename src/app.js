@@ -17,6 +17,7 @@ import { setupDemoBtn, checkFirstLaunch, setDependencies as setDemoDataDeps } fr
 import { openCloudSyncPanel, closeCloudSyncPanel, setDependencies as setCloudSyncDeps } from './cloud-sync-ui.js';
 import { ENCOURAGEMENT_SCENES, leaveEncouragementScene, restoreActiveEncouragementScene } from './encouragement-copy.js';
 import { startAdminApp } from './admin-app.js';
+import { initAI, scheduleAIAnalysisRefresh, refreshAIAnalysisCard } from './ai.js';
 
 let appEventsBound = false;
 let appCoreReady = false;
@@ -106,7 +107,7 @@ setExamListDeps({ renderExamDetail, updateRadarChart });
 setExamDetailDeps({ refreshAll });
 setBatchDeps({ refreshAll });
 setProfileDeps({ refreshAll });
-setChartTrendDeps({ updateRadarChart });
+setChartTrendDeps({ updateRadarChart, onTrendChartRendered: scheduleAIAnalysisRefresh });
 setImportExportDeps({ refreshAll });
 setDemoDataDeps({ refreshAll });
 setCloudSyncDeps({ refreshAll, ensureCloudAuth: handleCloudSyncEntry });
@@ -228,9 +229,10 @@ function bindAppEvents() {
     setupExamFormSubmit();
     setupScoreFormSubmit();
     setupBatchEvents();
-    setupImportExport();
-    setupDemoBtn();
-    setupReportEvents();
+        setupImportExport();
+        setupDemoBtn();
+        setupReportEvents();
+        initAI();
 
     document.getElementById('chartZoomOverlay')?.addEventListener('click', function(event) {
         if (event.target === this) closeChartZoom();
@@ -272,6 +274,7 @@ function setupAuthHandlers() {
         renderGuestAuthStatus();
         closeCloudSyncPanel();
         hideLoginPage();
+        await refreshAIAnalysisCard({ force: true });
         showToast({ icon: '👋', title: '已退出登录', message: '网页仍可继续使用，云端同步功能需要重新登录。' });
     });
 
@@ -282,6 +285,7 @@ function setupAuthHandlers() {
             renderGuestAuthStatus();
             closeCloudSyncPanel();
             hideLoginPage();
+            await refreshAIAnalysisCard({ force: true });
             return;
         }
 

@@ -13,9 +13,11 @@ export const CHART_COLORS = {
 
 // 注入外部依赖
 let _updateRadarChart = null;
+let _onTrendChartRendered = null;
 
-export function setDependencies({ updateRadarChart }) {
+export function setDependencies({ updateRadarChart, onTrendChartRendered }) {
     _updateRadarChart = updateRadarChart;
+    _onTrendChartRendered = onTrendChartRendered || null;
 }
 
 export function initCharts() {
@@ -88,6 +90,12 @@ export function initCharts() {
             trendCard.style.display = 'none';
             radarCard.style.display = 'block';
             if (_updateRadarChart) _updateRadarChart();
+            if (_onTrendChartRendered) {
+                _onTrendChartRendered({
+                    mode: state.trendAnalysisMode,
+                    exams: getExams(getActiveProfileId(), true)
+                });
+            }
         } else {
             trendCard.style.display = 'block';
             radarCard.style.display = 'none';
@@ -118,6 +126,13 @@ export function updateTrendChart() {
         updateRankChart(sortedExams);
     } else {
         updateScoreChart(sortedExams);
+    }
+
+    if (_onTrendChartRendered) {
+        _onTrendChartRendered({
+            mode: state.trendAnalysisMode,
+            exams: sortedExams
+        });
     }
 }
 

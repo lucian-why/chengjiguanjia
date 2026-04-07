@@ -44,7 +44,17 @@ export function openBatchModal() {
     document.getElementById('batchTableBody').innerHTML = '';
     renderBatchTable();
     document.getElementById('newBatchSubject').value = '';
+    const aiInput = document.getElementById('aiBatchInput');
+    const aiStatus = document.getElementById('aiBatchStatus');
+    const aiParseBtn = document.getElementById('aiBatchParseBtn');
+    if (aiInput) aiInput.value = '';
+    if (aiStatus) {
+        aiStatus.textContent = '';
+        aiStatus.dataset.type = 'info';
+    }
+    if (aiParseBtn) aiParseBtn.disabled = false;
     document.getElementById('batchModal').classList.add('active');
+    document.dispatchEvent(new CustomEvent('batch-modal-opened'));
 }
 
 export function closeBatchModal() {
@@ -120,6 +130,69 @@ export function addBatchSubject() {
     state.batchList.push({ name, score: '', classRank: '', gradeRank: '', fullScore });
     document.getElementById('newBatchSubject').value = '';
     renderBatchTable();
+}
+
+export function getBatchSubjectHints() {
+    return state.batchList
+        .map(subject => String(subject.name || '').trim())
+        .filter(Boolean);
+}
+
+export function applyParsedBatchSubjects(parsedSubjects = []) {
+    if (!Array.isArray(parsedSubjects) || parsedSubjects.length === 0) {
+        return { updated: 0, created: 0 };
+    }
+
+    const normalizedExisting = new Map();
+    state.batchList.forEach((subject, index) => {
+        const key = String(subject.name || '').trim().toLowerCase();
+        if (key) normalizedExisting.set(key, index);
+    });
+
+    let updated = 0;
+    let created = 0;
+
+    parsedSubjects.forEach((subject) => {
+        const name = String(subject?.name || '').trim();
+        if (!name) return;
+
+        const score = subject?.score;
+        if (score === '' || score === null || score === undefined || Number.isNaN(Number(score))) {
+            return;
+        }
+
+        const classRank = subject?.classRank;
+        const gradeRank = subject?.gradeRank;
+        const fullScore = Number.isNaN(Number(subject?.fullScore)) ? 100 : Number(subject.fullScore);
+        const key = name.toLowerCase();
+        const existingIndex = normalizedExisting.get(key);
+
+        if (existingIndex !== undefined) {
+            state.batchList[existingIndex] = {
+                ...state.batchList[existingIndex],
+                name,
+                score: String(Number(score)),
+                classRank: classRank === '' || classRank === null || classRank === undefined ? '' : String(Number(classRank)),
+                gradeRank: gradeRank === '' || gradeRank === null || gradeRank === undefined ? '' : String(Number(gradeRank)),
+                fullScore
+            };
+            updated += 1;
+            return;
+        }
+
+        state.batchList.push({
+            name,
+            score: String(Number(score)),
+            classRank: classRank === '' || classRank === null || classRank === undefined ? '' : String(Number(classRank)),
+            gradeRank: gradeRank === '' || gradeRank === null || gradeRank === undefined ? '' : String(Number(gradeRank)),
+            fullScore
+        });
+        normalizedExisting.set(key, state.batchList.length - 1);
+        created += 1;
+    });
+
+    renderBatchTable();
+    return { updated, created };
 }
 
 export async function saveBatch() {

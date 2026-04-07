@@ -71,15 +71,22 @@ async function callSyncFunction(name, data, fallback) {
 }
 
 export async function getCloudProfiles() {
-    await ensureCloudReady();
-    const data = await callSyncFunction('listCloudProfiles', {}, '获取云端档案失败');
+    const user = await ensureCloudReady();
+    const data = await callSyncFunction('listCloudProfiles', {
+        userId: user.id || '',
+        userEmail: user.email || ''
+    }, '获取云端档案失败');
     const rows = Array.isArray(data) ? data : (data?.profiles || data?.list || []);
     return rows.map(toCloudSummary);
 }
 
 export async function getCloudProfileData(profileId) {
-    await ensureCloudReady();
-    const data = await callSyncFunction('getCloudProfileData', { profileId }, '获取云端档案详情失败');
+    const user = await ensureCloudReady();
+    const data = await callSyncFunction('getCloudProfileData', {
+        profileId,
+        userId: user.id || '',
+        userEmail: user.email || ''
+    }, '获取云端档案详情失败');
     if (!data) return null;
     return toCloudSummary(data);
 }
@@ -122,8 +129,12 @@ export async function downloadProfiles(profileIds = []) {
 
 export async function deleteCloudProfiles(profileIds = []) {
     if (!profileIds.length) return 0;
-    await ensureCloudReady();
-    const data = await callSyncFunction('deleteCloudProfiles', { profileIds }, '删除云端档案失败');
+    const user = await ensureCloudReady();
+    const data = await callSyncFunction('deleteCloudProfiles', {
+        profileIds,
+        userId: user.id || '',
+        userEmail: user.email || ''
+    }, '删除云端档案失败');
     return data?.count || data?.deletedCount || profileIds.length;
 }
 

@@ -1,1 +1,46 @@
-{"envId": "chengjileida-8gpex74ea92afd85", "functionRoot": "cloud-functions", "functions": [{"name": "phonePasswordLogin", "timeout": 30, "runtime": "Nodejs18.15", "handler": "index.main", "installDependency": true, "path": "./cloud-functions/phonePasswordLogin"}, {"name": "phoneRegister", "timeout": 30, "runtime": "Nodejs18.15", "handler": "index.main", "installDependency": true, "path": "./cloud-functions/phoneRegister"}, {"name": "phoneResetPassword", "timeout": 30, "runtime": "Nodejs18.15", "handler": "index.main", "installDependency": true, "path": "./cloud-functions/phoneResetPassword"}, {"name": "updateNickname", "timeout": 30, "runtime": "Nodejs18.15", "handler": "index.main", "installDependency": true, "path": "./cloud-functions/updateNickname"}]}
+{
+  "envId": "chengjiguanjia-1g1twvrkd736c880",
+  "functionRoot": "cloud-functions",
+  "functions": [
+    {
+      "name": "phonePasswordLogin",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "path": "./cloud-functions/phonePasswordLogin"
+    },
+    {
+      "name": "phoneRegister",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "path": "./cloud-functions/phoneRegister"
+    },
+    {
+      "name": "phoneResetPassword",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "path": "./cloud-functions/phoneResetPassword"
+    },
+    {
+      "name": "updateNickname",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "path": "./cloud-functions/updateNickname"
+    },
+    {
+      "name": "ai_service",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "path": "./cloud-functions/ai_service"
+    }
+  ]
+}

@@ -206,6 +206,11 @@ export async function smsLogin(phone, code) {
     return result;
 }
 
+export async function verifyPhoneOtp(phone, code) {
+    if (!isAuthEnabled()) throw new Error('当前环境未启用腾讯云登录');
+    return await tcbPhoneLogin(phone, code, { silent: true });
+}
+
 /**
  * 手机号密码登录
  * @param {string} phone — 手机号
@@ -224,9 +229,9 @@ export async function phonePasswordLogin(phone, password) {
  * @param {string} code — 验证码
  * @param {string} password — 要设置的密码
  */
-export async function phoneRegisterFn(phone, code, password) {
+export async function phoneRegisterFn(phone, code, password, options = {}) {
     if (!isAuthEnabled()) throw new Error('当前环境未启用腾讯云登录');
-    const result = await tcbPhoneRegister(phone, code, password);
+    const result = await tcbPhoneRegister(phone, code, password, options);
     emitAuthChange('SIGNED_IN', { user: result?.user || null, token: result?.token || null });
     return result;
 }
@@ -237,9 +242,9 @@ export async function phoneRegisterFn(phone, code, password) {
  * @param {string} code — 验证码
  * @param {string} newPassword — 新密码
  */
-export async function phoneResetPasswordFn(phone, code, newPassword) {
+export async function phoneResetPasswordFn(phone, code, newPassword, options = {}) {
     if (!isAuthEnabled()) throw new Error('当前环境未启用腾讯云登录');
-    const result = await tcbPhoneResetPassword(phone, code, newPassword);
+    const result = await tcbPhoneResetPassword(phone, code, newPassword, options);
     emitAuthChange('SIGNED_IN', { user: result?.user || null, token: result?.token || null });
     return result;
 }
