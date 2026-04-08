@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.31.1",
     "vite": "^6.4.1",
-    "vite-plugin-singlefile": "^2.3.2"
+    "vite-plugin-singlefile": "^2.3.2",
+    "wrangler": "^4.81.0"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^2.27.2",
