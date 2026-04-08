@@ -104,6 +104,7 @@ export async function uploadProfile(profileId) {
         profileData: localBundle.bundle,
         examCount: localBundle.examCount,
         dataSize: estimateBundleSize(localBundle.bundle),
+        userId: user.id || '',
         userEmail: user.email || ''
     };
 

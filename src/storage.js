@@ -7,9 +7,37 @@ const PROFILES_KEY = 'xueji_profiles';
 const ACTIVE_PROFILE_KEY = 'xueji_active_profile';
 const FORM_MEMORY_KEY = 'xueji_form_memory';
 
+function normalizeProfiles(rawProfiles = []) {
+    let changed = false;
+    const normalized = (Array.isArray(rawProfiles) ? rawProfiles : []).map((profile, index) => {
+        const source = profile && typeof profile === 'object' ? profile : {};
+        let id = source.id || source.profileId || source.profile_id || '';
+        if (!id) {
+            id = `profile_legacy_${Date.now()}_${index}`;
+            changed = true;
+        }
+
+        const name = source.name || source.profileName || source.profile_name || `档案 ${index + 1}`;
+        const createdAt = source.createdAt || source.created_at || new Date().toISOString();
+
+        if (source.id !== id || source.name !== name || source.createdAt !== createdAt || source.profileId || source.profile_id || source.profileName || source.profile_name || source.created_at) {
+            changed = true;
+        }
+
+        return { id, name, createdAt };
+    });
+
+    return { normalized, changed };
+}
+
 function getProfiles() {
     const data = localStorage.getItem(PROFILES_KEY);
-    return data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    const { normalized, changed } = normalizeProfiles(parsed);
+    if (changed) {
+        localStorage.setItem(PROFILES_KEY, JSON.stringify(normalized));
+    }
+    return normalized;
 }
 
 function saveProfiles(profiles) {

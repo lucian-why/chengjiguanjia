@@ -70,6 +70,12 @@ function getStoredAdminUser() {
     return null;
 }
 
+function isValidUserShape(user) {
+    if (!user || typeof user !== 'object') return false;
+    if (user.isAdmin || user.role === 'admin') return true;
+    return Boolean(user.id || user.email || user.phone);
+}
+
 function saveAdminUser(user) {
     if (!isBrowser()) return;
     localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(user));
@@ -119,7 +125,8 @@ export async function getCurrentUser() {
     const adminUser = getStoredAdminUser();
     if (adminUser) return adminUser;
     if (!isAuthEnabled()) return null;
-    return await getTCBCurrentUser();
+    const user = await getTCBCurrentUser();
+    return isValidUserShape(user) ? user : null;
 }
 
 export function isAdminUser(user) {
@@ -271,7 +278,8 @@ export async function verifyToken() {
     const adminUser = getStoredAdminUser();
     if (adminUser) return adminUser;
     if (!isAuthEnabled()) return null;
-    return await verifyTCBToken();
+    const user = await verifyTCBToken();
+    return isValidUserShape(user) ? user : null;
 }
 
 export async function signOut() {

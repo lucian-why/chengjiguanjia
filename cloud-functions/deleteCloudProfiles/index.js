@@ -7,17 +7,20 @@ const _ = db.command;
 
 function parseEventPayload(event = {}) {
   if (!event || typeof event !== 'object') return {};
-  if (event.queryStringParameters && typeof event.queryStringParameters === 'object') {
+  if (event.queryStringParameters && typeof event.queryStringParameters === 'object' && Object.keys(event.queryStringParameters).length > 0) {
     return event.queryStringParameters;
   }
-  if (event.queryString && typeof event.queryString === 'object') {
+  if (event.queryString && typeof event.queryString === 'object' && Object.keys(event.queryString).length > 0) {
     return event.queryString;
   }
   if (typeof event.body === 'string' && event.body) {
+    const rawBody = event.isBase64Encoded
+      ? Buffer.from(event.body, 'base64').toString('utf8')
+      : event.body;
     try {
-      return JSON.parse(event.body);
+      return JSON.parse(rawBody);
     } catch {
-      return Object.fromEntries(new URLSearchParams(event.body));
+      return Object.fromEntries(new URLSearchParams(rawBody));
     }
   }
   if (event.body && typeof event.body === 'object') {

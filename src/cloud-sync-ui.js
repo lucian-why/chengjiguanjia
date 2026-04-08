@@ -1,5 +1,5 @@
 ﻿import { getCurrentUser, isAuthEnabled } from './auth.js';
-import { showConfirmDialog, showToast } from './modal.js';
+import { showConfirmDialog } from './modal.js';
 import { compareProfiles, deleteCloudProfiles, downloadProfiles, getCloudProfiles, getLocalProfileSummaries, uploadProfile } from './cloud-sync.js';
 
 let _refreshAll = null;
@@ -245,7 +245,7 @@ async function handleUpload(profileIds) {
         _selectedLocal.clear();
         await renderCloudSyncContent();
         if (_refreshAll) await _refreshAll();
-        showToast({ icon: '☁️', title: '备份完成', message: `已成功备份 ${profileIds.length} 个档案到云端。` });
+        setStatus(`已成功备份 ${profileIds.length} 个档案到云端。`, 'success');
     } catch (error) {
         setStatus(error.message || '备份失败', 'error');
     } finally {
@@ -261,7 +261,7 @@ async function handleDownload(profileIds) {
         _selectedCloud.clear();
         if (_refreshAll) await _refreshAll();
         await renderCloudSyncContent();
-        showToast({ icon: '📥', title: '恢复完成', message: `已恢复 ${restored.length} 个云端档案到本地。` });
+        setStatus(`已恢复 ${restored.length} 个云端档案到本地。`, 'success');
     } catch (error) {
         setStatus(error.message || '恢复失败', 'error');
     } finally {
@@ -285,7 +285,7 @@ async function handleDelete(profileIds) {
                 const count = await deleteCloudProfiles(profileIds);
                 _selectedCloud.clear();
                 await renderCloudSyncContent();
-                showToast({ icon: '🗑️', title: '删除完成', message: `已删除 ${count} 个云端档案，本地数据不受影响。` });
+                setStatus(`已删除 ${count} 个云端档案，本地数据不受影响。`, 'success');
             } catch (error) {
                 setStatus(error.message || '删除失败', 'error');
             } finally {
