@@ -65,7 +65,9 @@ function buildUserResponse(user) {
     nickname: user.nickname || user.phone || '云端用户',
     avatarUrl: user.avatarUrl || null,
     hasWeixin: !!user.weixinOpenid,
-    hasPhone: !!user.phone
+    hasPhone: !!user.phone,
+    role: user.role || '',
+    vipExpireAt: user.vipExpireAt || null
   };
 }
 

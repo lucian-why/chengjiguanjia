@@ -12,6 +12,9 @@
 
 // ==================== 存储键 ====================
 
+import { callFunction } from './cloud-tcb.js';
+import { getCurrentUser } from './auth.js';
+
 const VIP_STATE_KEY = 'cjradar_vip_state';
 const QUOTA_PREFIX = 'cjradar_vip_quota_';
 const USED_CODES_KEY = 'cjradar_vip_used_codes';
@@ -281,5 +284,26 @@ export function redeemInviteCode(code) {
     usedCodes.push(trimmed);
     _writeJSON(USED_CODES_KEY, usedCodes);
 
+    // 异步同步 VIP 状态到云端，确保跨端一致
+    syncVipStatusToCloud(true, expireAt);
+
     return { success: true, expireAt };
+}
+
+/**
+ * 异步同步 VIP 状态到云端
+ * 不阻塞主流程，失败只打日志
+ */
+async function syncVipStatusToCloud(isVip, vipExpireAt) {
+    try {
+        const user = await getCurrentUser();
+        if (!user?.id) return;
+        await callFunction('updateVipStatus', {
+            userId: user.id,
+            isVip,
+            vipExpireAt
+        });
+    } catch (error) {
+        console.warn('[vip] 同步 VIP 状态到云端失败:', error?.message || error);
+    }
 }

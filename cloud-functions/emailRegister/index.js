@@ -113,7 +113,9 @@ function buildUserResponse(user, token) {
     nickname: user.nickname || user.email.split('@')[0],
     avatarUrl: user.avatarUrl || null,
     hasWeixin: !!user.weixinOpenid,
-    hasPhone: !!user.phone
+    hasPhone: !!user.phone,
+    role: user.role || '',
+    vipExpireAt: user.vipExpireAt || null
   };
 }
 
