@@ -4,7 +4,47 @@ const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
 const auth = app.auth();
 
-async function getCurrentUser() {
+function parseEventPayload(event = {}) {
+  if (!event || typeof event !== 'object') return {};
+  if (event.queryStringParameters && typeof event.queryStringParameters === 'object' && Object.keys(event.queryStringParameters).length > 0) {
+    return event.queryStringParameters;
+  }
+  if (event.queryString && typeof event.queryString === 'object' && Object.keys(event.queryString).length > 0) {
+    return event.queryString;
+  }
+  if (typeof event.body === 'string' && event.body) {
+    const rawBody = event.isBase64Encoded
+      ? Buffer.from(event.body, 'base64').toString('utf8')
+      : event.body;
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      return Object.fromEntries(new URLSearchParams(rawBody));
+    }
+  }
+  if (event.body && typeof event.body === 'object') {
+    return event.body;
+  }
+  return event;
+}
+
+async function getCurrentUser(event = {}) {
+  const payload = parseEventPayload(event);
+  const explicitUid = String(payload.userId || payload.uid || '').trim();
+  if (explicitUid) {
+    return { code: 0, uid: explicitUid, userInfo: { uid: explicitUid } };
+  }
+
+  const explicitEmail = String(payload.userEmail || payload.email || '').trim().toLowerCase();
+  if (explicitEmail) {
+    const matchedUser = await db.collection('users').where({ email: explicitEmail }).limit(1).get();
+    const user = matchedUser.data && matchedUser.data[0];
+    if (user && user._id) {
+      const uid = typeof user._id === 'string' ? user._id : user._id.toString();
+      return { code: 0, uid, userInfo: { uid, email: explicitEmail } };
+    }
+  }
+
   const userInfo = await auth.getUserInfo();
   const uid = userInfo?.uid || userInfo?.openId || userInfo?.customUserId || '';
   if (!uid) {
@@ -13,14 +53,15 @@ async function getCurrentUser() {
   return { code: 0, uid, userInfo };
 }
 
-exports.main = async (event) => {
+exports.main = async (event = {}) => {
   try {
-    const current = await getCurrentUser();
+    const payload = parseEventPayload(event);
+    const current = await getCurrentUser(payload);
     if (current.code !== 0) {
       return current;
     }
 
-    const showDeleted = event.showDeleted === true;
+    const showDeleted = payload.showDeleted === true || payload.showDeleted === 'true';
     const where = { userId: current.uid };
 
     // showDeleted=true 时查全部（含已删除），否则只查未删除的
